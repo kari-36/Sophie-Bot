@@ -22,7 +22,6 @@ import re
 from typing import Any, Match, Optional, TYPE_CHECKING
 
 from .bases import BaseFormatPlugin
-from .document import FILE_TYPES
 
 if TYPE_CHECKING:
     from ..compiler import ParsedNoteModel, RawNoteModel
@@ -43,13 +42,13 @@ class WebPreview(BaseFormatPlugin):
     async def compile_(
             cls, message: Message, data: RawNoteModel, payload: ParsedNoteModel, chat: Chat, user: Optional[User]
     ) -> Any:
-        if preview := getattr(data, 'web_preview', None) and FILE_TYPES not in payload.__fields__:
+        if preview := getattr(data, 'web_preview', None) and not data.document:
             payload.__setattr__('disable_web_page_preview', preview)
 
     @classmethod
     async def decompile(
             cls, message: Message, data: RawNoteModel, payload: ParsedNoteModel, chat: Chat, user: Optional[User]
     ) -> Any:
-        if preview := getattr(data, 'web_preview', None) and FILE_TYPES not in payload.__fields__:
+        if preview := getattr(data, 'web_preview', None):
             if preview is True and payload.text is not None:
-                payload.text += "%PREVIEW"
+                payload.text += "\n%PREVIEW"

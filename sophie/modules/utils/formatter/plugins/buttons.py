@@ -100,6 +100,8 @@ class NoteButtons(BaseFormatPlugin):
                     f"[{html.escape(button.text, quote=False)}]"
                     f"({button.button_type}{':' + html.escape(button.data, quote=False) if button.data else ''}"
                     f"{':same' if button.same_row else ''})")
+
+                payload.text += "\n"
                 payload.text += syntax
 
 
