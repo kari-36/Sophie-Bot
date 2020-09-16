@@ -16,9 +16,19 @@
 #
 # This file is part of Sophie.
 
-from pydantic import BaseModel
+from pathlib import Path
+from typing import Any
+
+from pydantic import BaseModel, validator
 
 
 class __config__(BaseModel):
     default_language: str = 'en-US'
     languages_names_in_english: bool = False
+    global_translation_path: Path = Path('sophie/modules/utils/translations')
+
+    @validator('global_translation_path')
+    def convert_path(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return Path(value)
+        return value

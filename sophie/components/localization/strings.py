@@ -15,43 +15,52 @@
 #
 # This file is part of Sophie.
 
-from typing import Union, TypeVar, Any, Dict, cast, Callable
+from typing import Optional, Union, TypeVar, Any, Dict, cast, Callable
 
 from aiogram.dispatcher.handler import MessageHandler
 from babel.core import Locale
 
 from .lanuages import get_babel, get_language_emoji
 from .locale import get_chat_locale
+from .loader import GLOBAL_TRANSLATIONS
 
 
 class GetStrings:
-    def __init__(self, module: str):
+    def __init__(self, module: Optional[str] = None):
         from sophie.utils.loader import LOADED_MODULES
 
         self.modules = LOADED_MODULES
         self.module = module
 
     def get_by_locale_name(self, locale_code: str) -> Dict[str, str]:
-        if locale_code not in self.modules[self.module].data['translations']:
+        if not self.module:
+            translations = GLOBAL_TRANSLATIONS
+        else:
+            translations = self.modules[self.module].data['translations']
+
+        if locale_code not in translations:
             locale_code = 'en-US'
 
-        return self.modules[self.module].data['translations'][locale_code]
+        return translations[locale_code]
 
     async def get_by_chat_id(self, chat_id: int) -> Dict[str, str]:
         locale_name = await get_chat_locale(chat_id)
         return self.get_by_locale_name(locale_name)
 
+    def __getitem__(self, locale_name: str) -> Dict[str, str]:
+        return self.get_by_locale_name(locale_name)
+
 
 class GetString:
-    def __init__(self, module: str, key: str):
+    def __init__(self, module: Optional[str] = None, *, key: str):
         self.module = module
         self.key = key
 
-    def get_by_locale_name(self, locale_code: str) -> str:
+    def get_by_locale_name(self, locale_code: str) -> Dict[str, str]:
         strings = GetStrings(self.module)[locale_code]  # type: ignore
         return strings
 
-    async def get_by_chat_id(self, chat_id: int) -> str:
+    async def get_by_chat_id(self, chat_id: int) -> Dict[str, str]:
         locale_code = await get_chat_locale(chat_id)
         return self.get_by_locale_name(locale_code)
 

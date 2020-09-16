@@ -15,7 +15,7 @@
 #
 # This file is part of Sophie.
 
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, Type
 
 from sophie.utils.logging import log
 from sophie.utils.bases import BaseComponent
@@ -26,9 +26,9 @@ if TYPE_CHECKING:
     from . import strings
 
     get_string_dec: strings.get_strings_dec  # type: ignore
-    Strings: strings.Strings
-    GetStrings: strings.GetStrings
-    GetString: strings.GetString
+    Strings: Type[strings.Strings]
+    GetStrings: Type[strings.GetStrings]
+    GetString: Type[strings.GetString]
 
 
 class Component(BaseComponent):
