@@ -20,33 +20,18 @@ from __future__ import annotations
 
 import typing
 
-if typing.TYPE_CHECKING:
-    from .fields import IndexField
-
 
 class _ArgField:
-    __slots__ = 'default', 'index', 'parser', 'allow_none', 'description'
+    __slots__ = 'default', 'index', 'regex', 'parser', 'optional'
 
     def __init__(
             self,
             default: typing.Any,
-            index: typing.Union[typing.Type[IndexField], int],
-            allow_none: bool,
-            description: str = None
+            index: int,
+            regex: str,
+            optional: bool,
     ):
         self.default = default
         self.index = index
-        self.allow_none = allow_none
-        self.description = description
-
-
-class _Parser:
-    __slots__ = "last_fields", "parser", "whole_text", "communicate"
-
-    def __init__(
-            self, parser: typing.Callable[..., typing.Any], last_fields: bool, whole_text: bool, communicate: bool
-    ):
-        self.parser = parser
-        self.last_fields = last_fields
-        self.whole_text = whole_text
-        self.communicate = communicate
+        self.regex = regex
+        self.optional = optional

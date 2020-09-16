@@ -21,39 +21,27 @@ from __future__ import annotations
 import typing
 from ._internal import _ArgField
 
-T = typing.TypeVar("T", bound=typing.Union[int, slice])
-
 
 class Undefined:
     def __repr__(self) -> str:
         return 'Undefined'
 
 
-class IndexField(typing.Generic[T]):
-    index: slice
-
-    def __class_getitem__(cls, index: typing.Any) -> typing.Any:
-        cls.index = index
-        return cls.index
-
-    def __getitem__(self, index: typing.Any) -> typing.Any:  # python3.8
-        self.index = index
-        return self.index
-
-
 def ArgField(
         default: typing.Any = Undefined, *,
-        index: typing.Union[typing.Type[IndexField], int] = 0,
-        allow_none: bool = False,
+        index: int = 0,
+        regex: str = r'[^\s]+',
+        optional: bool = False,
         description: str = None
 ) -> typing.Any:
     """
     :param default: fallback value
+    :param regex: Regex for field
     :param index: index of where argument lies, defaults to 0
-    :param allow_none: True if ``None`` value is allowed
+    :param optional: True if ``None`` value is allowed
     :param description: Small description of field, used to hint user if field isn't given
     """
 
     return _ArgField(
-        default, index, allow_none, description if description else __doc__
+        default, index, regex, optional
     )

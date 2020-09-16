@@ -16,19 +16,16 @@
 #
 # This file is part of Sophie.
 
-from .parser import ArgumentParser, ArgField, IndexField, parse_method, parse_arguments, BaseRootParser
+from .parser import ArgumentParser, ArgField, parse_method
 from .message import get_args, get_args_list
 from .handlers import MessageHandler, CallbackQueryHandler
 
 __all__ = [
     "ArgumentParser",
     "ArgField",
-    "IndexField",
     "parse_method",
-    "parse_arguments",
     "get_args",
     "get_args_list",
     "MessageHandler",
-    "CallbackQueryHandler",
-    "BaseRootParser"
+    "CallbackQueryHandler"
 ]

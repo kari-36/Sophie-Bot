@@ -18,17 +18,28 @@
 
 from __future__ import annotations
 
+import re
 import typing
 import inspect
 
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
 from copy import deepcopy
 
+from aiogram.dispatcher.filters import BaseFilter
+
+from sophie.components.localization.strings import GetStrings
+from sophie.utils.logging import log
+
 from ._internal import _ArgField
+from .fields import Undefined
 
 if typing.TYPE_CHECKING:
+    from aiogram.dispatcher.filters import CommandObject
     from aiogram.api.types import Message
-    from ._internal import _Parser
+
+WHITESPACE = r"\s"
+FIELD = r"(?P<{field}>{re}|)"
+OPTIONAL_FIELD = r"(?:\s?(?P<{field}>{re}|)?)"
 
 
 class ArgumentParserMeta(ABCMeta):
@@ -38,7 +49,6 @@ class ArgumentParserMeta(ABCMeta):
     ) -> typing.Any:
         fields = {}
         parsers = {}
-        root_parser = None
 
         # check in base class; if there is predefined
         # argument parsing methods or field declared in there
@@ -47,27 +57,32 @@ class ArgumentParserMeta(ABCMeta):
             if hasattr(base, "__ArgumentParser__") or base.__name__ != "ArgumentParser":
                 fields.update(deepcopy(base.__fields__))
                 parsers.update(deepcopy(base.__parsers__))
-                root_parser = base.__root_parser__
 
         for field in namespace:
             field_info = namespace.get(field)
             if not isinstance(field_info, _ArgField):
                 mcs._extract_parsers_(parsers, field_info)
-
-                if field_info is not None and inspect.isclass(field_info):
-                    if issubclass(field_info, BaseRootParser):
-                        root_parser = field_info
                 continue
 
             # we allow fields to overide the fields declared in base
             # fields may not be in same index as base so uhmm!
-            fields[field] = field_info
+            fields[field] = typing.cast(_ArgField, field_info)
+
+        # Generate regex
+        regex = ''
+        field_list = sorted(fields.items(), key=lambda e: e[1].index)
+        for field, field_data in field_list:
+            if field_data.optional:
+                regex += OPTIONAL_FIELD.format(field=field, re=field_data.regex)
+            else:
+                if regex:
+                    regex += WHITESPACE
+                regex += FIELD.format(field=field, re=field_data.regex)
 
         new_namespace = {
+            "__regex__": re.compile(regex),
             "__fields__": fields,
             "__parsers__": parsers,
-            "__root_parser__": root_parser,
-            "__ArgumentParser__": True,
             **{name: value for name, value in namespace.items() if name not in (fields or parsers)},
         }
         new_namespace["__namespace__"] = new_namespace  # save a snapshot of new namespace
@@ -83,37 +98,94 @@ class ArgumentParserMeta(ABCMeta):
                     parsers[field] = attr[1]
 
 
-class BaseRootParser(metaclass=ABCMeta):
-    """
-    Root parsers are used to process the text in a custom way.
-
-    All you need to do is return the ``list of anything`` (in function `get_text`)
-    that is processed, should fit the index defined by fields
-    """
-
-    @abstractmethod
-    async def get_text(
-            self, message: Message, text: typing.Optional[str], fields: dict
-    ) -> list:
-        """
-        :param message: Message object
-        :param text: return the whole text deducting the ``/command``
-        :param fields: fields defined in the class
-        """
-        raise NotImplementedError
-
-
 class ArgumentParser(metaclass=ArgumentParserMeta):
 
     if typing.TYPE_CHECKING:
+        __regex__: re.Pattern
         __fields__: typing.Dict[typing.Any, _ArgField]
-        __parsers__: typing.Dict[str, _Parser]
-        __root_parser__: typing.Optional[typing.Type[BaseRootParser]]
+        __parsers__: typing.Dict[str, typing.Callable[..., typing.Any]]
 
-    __splitter__ = " "
+    def __init__(self, **data: typing.Any) -> None:
+        object.__setattr__(self, '__dict__', data)
 
     def __repr__(self) -> str:
         # make debugging better; inspired from pydantic
         attrs = ", ".join(repr(v) if k is None else f'{k}={v!r}' for k, v in self.__dict__.items())
         cls = self.__class__.__name__
         return f"{cls}({attrs})"
+
+    @classmethod
+    def filter(cls, optional: bool = False, skip_command: bool = False) -> _ArgFilter:  # noqa: A003
+        return _ArgFilter(
+            parser=cls, optional=optional, skip_command=skip_command
+        )
+
+
+class _ArgFilter(BaseFilter):
+    parser: typing.Type[ArgumentParser]
+    """parser"""
+    optional: bool
+    """If Arguments are optional"""
+    skip_command: bool
+    """True if commands need to be included in args"""
+
+    async def __call__(
+            self, message: Message, command: typing.Optional[CommandObject] = None
+    ) -> typing.Union[bool, typing.Dict[str, typing.Any]]:
+        strings = await GetStrings().get_by_chat_id(message.chat.id)
+
+        if not (args := self.get_args(message, command)):
+            if not self.optional:
+                await message.reply(strings['no_args'])
+                return False
+
+            return {
+                "args": self.parser(**dict(zip(self.parser.__fields__.keys(), [None] * len(self.parser.__fields__))))
+            }
+
+        regex = self.parser.__regex__.match(args)
+        if not regex:
+            log.warning(
+                f"Found unmatched regex; {self.parser.__name__}; {args=}; re={self.parser.__regex__}' match={regex}"
+            )
+            return False
+
+        values: typing.Dict[str, typing.Any] = {}
+        for field, field_data in self.parser.__fields__.items():
+            value = regex.group(field)
+            if not (value := await self.trigger_parser(field, value, values=values, field=field_data, match=regex)):
+                if not field_data.optional:
+                    await message.reply(strings['no_args:fields'].format(field=field))
+                value = field_data.default if field_data.default is not Undefined else None
+            values[field] = value
+
+        return {
+            "args": self.parser(**values)
+        }
+
+    async def trigger_parser(
+            self, field_name: typing.Any, value: typing.Any, **kwargs: typing.Any
+    ) -> typing.Any:
+        parser = self.parser.__parsers__.get(field_name, None)
+        if parser:
+            spec = inspect.getfullargspec(parser)
+            kwargs = {key: value for key, value in kwargs.items() if key in spec.args}
+            try:
+                if inspect.iscoroutinefunction(parser):
+                    value = await parser(self.parser, value, **kwargs)
+                else:
+                    value = parser(self.parser, value, **kwargs)
+            except (TypeError, ValueError, AssertionError):
+                return False
+        return value
+
+    def get_args(
+            self, message: Message, command: typing.Optional[CommandObject]
+    ) -> typing.Union[typing.Optional[str], typing.Literal[False]]:
+        if not self.skip_command:
+            if command:
+                if command.args:
+                    return command.args
+        elif message.text:
+            return message.text
+        return False

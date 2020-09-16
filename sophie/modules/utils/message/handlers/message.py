@@ -46,7 +46,7 @@ class MessageHandler(handler.MessageHandler, ABC):
                     ...
 
         """
-        return self.data.get("arguments")
+        return self.data.get("args")
 
     @property
     def strings(self) -> Strings:

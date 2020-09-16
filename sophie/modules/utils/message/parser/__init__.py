@@ -16,8 +16,8 @@
 #
 # This file is part of Sophie.
 
-from .bases import ArgumentParser, BaseRootParser
-from .fields import ArgField, IndexField
-from .decorators import parse_method, parse_arguments
+from .bases import ArgumentParser
+from .fields import ArgField
+from .decorators import parse_method
 
-__all__ = ["ArgumentParser", "ArgField", "IndexField", "parse_method", "parse_arguments", "BaseRootParser"]
+__all__ = ["ArgumentParser", "ArgField", "parse_method"]

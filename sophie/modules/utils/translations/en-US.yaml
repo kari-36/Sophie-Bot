@@ -16,34 +16,5 @@
 #
 # This file is part of Sophie.
 
-from __future__ import annotations
-
-import typing
-
-if typing.TYPE_CHECKING:
-    from ._internal import _ArgField
-
-
-class MissingField(Exception):
-    def __init__(self, field_name: str, field_info: _ArgField):
-        self.field_name = field_name
-        self.field_info = field_info
-
-
-class NoArgsGivenError(Exception):
-    pass
-
-
-class SkipParsing(Exception):
-    """
-    Allows you to skip parsing (note: this would cancel the handler)
-    """
-    pass
-
-
-class MultipleFieldParserError(Exception):
-    pass
-
-
-class NoParserGivenError(Exception):
-    pass
+no_args: "Not enough args!"
+no_args:fields: "Not enough arghs! missing field '{field}'"

@@ -20,14 +20,6 @@ from __future__ import annotations
 
 import typing
 
-from .parser import _parse
-from ._internal import _Parser
-from .errors import NoArgsGivenError, SkipParsing, MissingField, NoParserGivenError
-
-if typing.TYPE_CHECKING:
-    from aiogram.api.types import Message
-    from .bases import ArgumentParser
-
 
 def parse_method(
         *fields: str, last_fields: bool = False, pass_whole_text: bool = False, communicate: bool = False
@@ -72,87 +64,8 @@ def parse_method(
             "__parser_method__",
             (
                 fields,
-                _Parser(f_cls.__func__, last_fields, pass_whole_text, communicate)
+                f_cls.__func__
             )
         )
         return f_cls
-    return decorator
-
-
-def parse_arguments(
-        parser: typing.Optional[typing.Type[ArgumentParser]] = None,
-        allow_missing: bool = False,
-        skip_command: bool = False
-) -> typing.Callable[[typing.Callable[..., typing.Any]], typing.Any]:
-    """
-    Use this decorator on your `class`
-
-    **Usage:**
-        *first method* : you can declare model of your arguments at first::
-
-            args: SomeName # for type hint
-
-            class SomeName(ArgumentParser):
-                ...
-
-            @parse_argument(SomeName)
-            class Handler(..Handler):
-                pass
-
-        *Second method* : declaring model as inner class inside the handler::
-
-            # when having multiple decs; it's prefered to be at bottom
-            @parse_arguments()
-            class Handler(MessageHandler):
-                class Arguments:  # it's not necessary to inherit "ArgumentParser"
-                    # note: class name should "Arguments"
-                    arg1: int = ArgField(...)
-        .
-
-    You could also inherit pre defined `Arguments` class to include it's parsers, field and you can override.
-
-    **NOTE** Creating mutiple parser for one field doesnt work, the last parser that would be
-    defined, accounted as the `actual` parser
-
-    :param parser: the defined parser of this handler (should be type of 'ArgumentParser')
-    :param allow_missing: to continue even no arguments given, defaults to 'False'; this is NOT for fields!
-    :param skip_command: if you want to include bot command (/command@UserBot) as args (doesnt work on `captions`)
-    """
-
-    def decorator(
-            func: typing.Callable[..., typing.Any]
-    ) -> typing.Callable[..., typing.Any]:
-
-        async def wrapped(event: Message, *args: typing.Any, **kwargs: typing.Any) -> typing.Any:
-            cls = parser
-            if cls is None:
-                if possible_parser := getattr(func, "Arguments", None):
-                    cls = possible_parser
-                else:
-                    # no parser is given
-                    raise NoParserGivenError(f"Can't find any arg parser for {func.__name__}")
-
-            try:
-                text = event.text or event.caption
-                arguments = await _parse(cls, event, text, allow_missing, skip_command)
-
-            except NoArgsGivenError:
-                text = "Not enough arghs! Read help for more info"  # TODO: button, and localize these strings
-                return await event.reply(text)
-
-            except MissingField as error:
-                text = f"Not enough arghs! missing argument '{error.field_name}'"
-                if error.field_info.description:  # TODO: localize
-                    text += f" ({error.field_info.description})"
-                return await event.reply(text)
-
-            except SkipParsing:
-                # this error is called to skip parsing
-                pass
-            else:
-                return await func(event, *args, arguments=arguments, **kwargs)
-
-        # functools.wraps doesnt work here
-        wrapped.__module__ = func.__module__  # noqa  # FIXME
-        return wrapped
     return decorator
