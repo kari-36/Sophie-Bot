@@ -18,7 +18,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional, TYPE_CHECKING, Tuple
+from typing import Any, TYPE_CHECKING, Tuple
 
 from aiogram.api.types import ContentType
 from pydantic import BaseModel
@@ -27,7 +27,7 @@ from .bases import BaseFormatPlugin
 
 if TYPE_CHECKING:
     from ..compiler import RawNoteModel, ParsedNoteModel
-    from aiogram.api.types import Message, Chat, User
+    from aiogram.api.types import Message
 
 FILE_TYPES = [
     ContentType.ANIMATION, ContentType.AUDIO, ContentType.DOCUMENT, ContentType.PHOTO,
@@ -43,13 +43,22 @@ class DocumentModel(BaseModel):
 class Document(BaseFormatPlugin):
 
     @classmethod
-    async def validate(cls, message: Message, data: RawNoteModel) -> bool:  # type: ignore
+    async def validate(cls, message: Message, data: RawNoteModel) -> bool:
         file_id, file_type = cls.__get_fileinfo(message)
-        if file_id and file_type:
-            data.__setattr__(
-                'document', DocumentModel(file_id=file_id, file_type=file_type)
-            )
-            return True
+        if not (file_id and file_type):
+            # check document in reply message
+            if message.reply_to_message:
+                file_id, file_type = cls.__get_fileinfo(message.reply_to_message)
+                if not (file_id and file_type):
+                    assert data.text is not None, 'invalid_document'
+                    return False
+
+            if data.text:
+                assert len(data.text) <= 1024, 'media_caption_too_long'
+        data.__setattr__(
+            'document', DocumentModel(file_id=file_id, file_type=file_type)
+        )
+        return True
 
     @staticmethod
     def __get_fileinfo(message: Message) -> Tuple[Any, Any]:
@@ -65,10 +74,7 @@ class Document(BaseFormatPlugin):
             return None, None
 
     @classmethod
-    async def compile_(
-            cls, message: Message, data: RawNoteModel, payload: ParsedNoteModel, chat: Chat, user: Optional[User]
-    ) -> Any:
-
+    async def compile_(cls, data: RawNoteModel, payload: ParsedNoteModel) -> Any:
         if data.document is not None:
             payload.__setattr__(
                 data.document.file_type,
@@ -76,7 +82,5 @@ class Document(BaseFormatPlugin):
             )
 
     @classmethod
-    async def decompile(
-            cls, message: Message, data: RawNoteModel, payload: ParsedNoteModel, chat: Chat, user: Optional[User]
-    ) -> Any:
-        await cls.compile_(message, data, payload, chat, user)
+    async def decompile(cls, data: RawNoteModel, payload: ParsedNoteModel) -> Any:
+        await cls.compile_(data, payload)

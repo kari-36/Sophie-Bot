@@ -18,31 +18,32 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Optional, TYPE_CHECKING, Type
+from typing import Any, Awaitable, Callable, List, Optional, TYPE_CHECKING, Type
 
 if TYPE_CHECKING:
-    from ..compiler import ParsedNoteModel, RawNoteModel
-    from aiogram.api.types import Message, Chat, User
+    from re import Pattern
 
 
 class BaseFormatPlugin:
-    __syntax__: Optional[str] = None
+    __syntax__: Optional[Pattern] = None
 
-    @classmethod
-    async def compile_(
-            cls, message: Message, data: RawNoteModel, payload: ParsedNoteModel, chat: Chat, user: Optional[User]
-    ) -> Any:
-        pass
+    if TYPE_CHECKING:
+        compile_: Callable[..., Awaitable[Any]]
+        decompile: Callable[..., Awaitable[Any]]
+        validate: Callable[..., Awaitable[Any]]
+    else:
 
-    @classmethod
-    async def decompile(
-            cls, message: Message, data: RawNoteModel, payload: ParsedNoteModel, chat: Chat, user: Optional[User]
-    ) -> Any:
-        pass
+        @classmethod
+        async def compile_(cls, *args: Any, **kwargs: Any) -> Any:
+            pass
 
-    @classmethod
-    async def validate(cls, *args: Any, **kwargs: Any) -> Any:
-        pass
+        @classmethod
+        async def decompile(cls, *args: Any, **kwargs: Any) -> Any:
+            pass
+
+        @classmethod
+        async def validate(cls, *args: Any, **kwargs: Any) -> Any:
+            pass
 
 
 def get_all_plugins() -> List[Type[BaseFormatPlugin]]:

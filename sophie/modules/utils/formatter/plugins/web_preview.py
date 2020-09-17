@@ -25,30 +25,25 @@ from .bases import BaseFormatPlugin
 
 if TYPE_CHECKING:
     from ..compiler import ParsedNoteModel, RawNoteModel
-    from aiogram.api.types import Message, Chat, User
 
 
 class WebPreview(BaseFormatPlugin):
-    __syntax__: str = r"[%|$]PREVIEW"
+    __syntax__: re.Pattern = re.compile("[%|$]PREVIEW")
 
     @classmethod
-    async def validate(cls, message: Message, match: Optional[Match], data: RawNoteModel) -> Any:  # type: ignore
+    async def validate(cls, match: Optional[Match], data: RawNoteModel) -> Any:
         if match:
             data.__setattr__('web_preview', True)
             if data.text:
                 data.text = re.sub('%PREVIEW', '', data.text)
 
     @classmethod
-    async def compile_(
-            cls, message: Message, data: RawNoteModel, payload: ParsedNoteModel, chat: Chat, user: Optional[User]
-    ) -> Any:
+    async def compile_(cls, data: RawNoteModel, payload: ParsedNoteModel) -> Any:
         if preview := getattr(data, 'web_preview', None) and not data.document:
             payload.__setattr__('disable_web_page_preview', preview)
 
     @classmethod
-    async def decompile(
-            cls, message: Message, data: RawNoteModel, payload: ParsedNoteModel, chat: Chat, user: Optional[User]
-    ) -> Any:
+    async def decompile(cls, data: RawNoteModel, payload: ParsedNoteModel) -> Any:
         if preview := getattr(data, 'web_preview', None):
             if preview is True and payload.text is not None:
                 payload.text += "\n%PREVIEW"

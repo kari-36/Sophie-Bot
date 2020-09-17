@@ -20,6 +20,9 @@
 no_args: "Not enough args!"
 no_args:fields: "Not enough arghs! missing field '{field}'"
 
+invalid_document: "The document specified is unsupported or invalid !"
+media_caption_too_long: "Caption is too long. should be less than 1024 characters!"
+
 # component: Help
 help_menu_header: |-
   Hey, Welcome to help menu!

@@ -18,7 +18,7 @@
 
 from __future__ import annotations
 
-from inspect import signature
+import inspect
 from typing import Any, Callable, Optional, TYPE_CHECKING, Union
 
 from aiogram.api.types import (
@@ -50,20 +50,35 @@ class RawNoteModel(BaseModel):
     text: Optional[str] = None
     document: Optional[DocumentModel] = None
 
-    async def compile_(self, message: Message, chat: Chat, user: Optional[User]) -> ParsedNoteModel:
+    async def compile_(
+            self, message: Message, chat: Optional[Chat] = None, user: Optional[User] = None
+    ) -> ParsedNoteModel:
+        if not chat:
+            chat = message.chat
+
         payload = ParsedNoteModel(text=self.text)
         for plugin in get_all_plugins():
-            await plugin.compile_(message, self, payload, chat, user)
+            kwargs = self._generate_kwargs(
+                plugin.compile_, message=message, data=self, payload=payload, chat=chat, user=user
+            )
+            await plugin.compile_(**kwargs)
         return payload
 
-    async def decompile(self, message: Message, chat: Chat, user: Optional[User]) -> ParsedNoteModel:
+    async def decompile(
+            self, message: Message, chat: Optional[Chat] = None, user: Optional[User] = None
+    ) -> ParsedNoteModel:
+        if not chat:
+            chat = message.chat
+
         payload = ParsedNoteModel(text="")
         if self.text is not None:
             payload.text = self.text
 
         for plugin in get_all_plugins():
-            await plugin.decompile(message, self, payload, chat, user)
-
+            kwargs = self._generate_kwargs(
+                plugin.decompile, message=message, data=self, payload=payload, chat=chat, user=user
+            )
+            await plugin.decompile(**kwargs)
         return payload
 
     def _build_request(self) -> Callable[..., Any]:
@@ -81,6 +96,11 @@ class RawNoteModel(BaseModel):
                 obj.text = fallback_text
         return True
 
+    @classmethod
+    def _generate_kwargs(cls, func: object, **kwargs: Any) -> dict:
+        spec = inspect.getfullargspec(func)
+        return {key: value for key, value in kwargs.items() if key in spec.args}
+
     async def send(
             self,
             message: Message,
@@ -88,22 +108,25 @@ class RawNoteModel(BaseModel):
             user: Optional[User] = None,
             reply_id: Optional[int] = None,
             noformat: bool = False,
-            fallback_text: str = '404'
+            fallback_text: str = '404',
+            compiled: Optional[ParsedNoteModel] = None  # well one can pass compiled model too
     ) -> Message:
 
-        if not chat:
-            chat = message.chat
-        if not user:
-            user = message.from_user
+        payload = compiled
+        if not payload:
+            if not chat:
+                chat = message.chat
+            if not user:
+                user = message.from_user
 
-        if noformat:
-            payload = await self.decompile(message, chat, user)
-        else:
-            payload = await self.compile_(message, chat, user)
+            if noformat:
+                payload = await self.decompile(message, chat, user)
+            else:
+                payload = await self.compile_(message, chat, user)
 
         self._validate_text(payload, fallback_text)
         request = self._build_request()
-        params = set(signature(request).parameters.keys())
+        params = inspect.getfullargspec(request).args
         if 'caption' in params:
             # by_alias cus "text" would named as "caption"; hacky
             kwargs = payload.dict(by_alias=True)

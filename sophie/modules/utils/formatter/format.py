@@ -59,34 +59,36 @@ class _Format:
         parser = self.__get_parse_mode()
         data = RawNoteModel(text=self._text)
 
-        if await validate(self._message, data):
-            if self._text and data.text:
+        if not await validate(self._message, data):
+            return False
 
-                if parser == 'html':
-                    from .parser import HTML, UnpackEntitiesHTML
-                    try:
-                        data.text = HTML.parse(
-                            UnpackEntitiesHTML().unparse(
-                                data.text,
-                                self._message.entities or self._message.caption_entities
-                            )
-                        )
-                    except ParseError as error:
-                        await self._message.answer(f"Unable to compile: {html.escape(error.text, False)}")
-                        return False
+        if self._text and data.text:
 
-                elif parser == 'md':
-                    from .parser import Markdown, UnpackEntitiesMD
-
-                    data.text = Markdown.parse(
-                        UnpackEntitiesMD().unparse(
+            if parser == 'html':
+                from .parser import HTML, UnpackEntitiesHTML
+                try:
+                    data.text = HTML.parse(
+                        UnpackEntitiesHTML().unparse(
                             data.text,
                             self._message.entities or self._message.caption_entities
                         )
                     )
+                except ParseError as error:
+                    await self._message.answer(f"Unable to compile: {html.escape(error.text, False)}")
+                    return False
 
-                else:
-                    data.text = html.escape(data.text, quote=False)
+            elif parser == 'md':
+                from .parser import Markdown, UnpackEntitiesMD
+
+                data.text = Markdown.parse(
+                    UnpackEntitiesMD().unparse(
+                        data.text,
+                        self._message.entities or self._message.caption_entities
+                    )
+                )
+
+            else:
+                data.text = html.escape(data.text, quote=False)
 
         return data
 

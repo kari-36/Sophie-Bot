@@ -19,12 +19,12 @@
 from __future__ import annotations
 
 import html
+import inspect
 import warnings
 import re
 
 from abc import ABCMeta
-from inspect import signature
-from typing import Any, Callable, Dict, Literal, Match, Optional, TYPE_CHECKING, Tuple
+from typing import Any, Awaitable, Callable, Dict, Literal, Match, Optional, TYPE_CHECKING, Tuple
 
 from aiogram.api.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pydantic import BaseModel, Extra
@@ -51,18 +51,23 @@ class ButtonDataModel(BaseModel):
 
 
 class NoteButtons(BaseFormatPlugin):
-    __syntax__: str = r"\[(?P<text>.+?)\]\((?P<type>\w+)(?:\:(?P<data>(?!same).+?|))?(?:\:(?P<row>same))?\)(?:\s)?"
+    __syntax__: re.Pattern = re.compile(
+        r"\[(?P<text>.+?)]\((?P<type>\w+)(?::(?P<data>(?!same).+?|))?(?::(?P<row>same))?\)(?:\s)?"
+    )
 
     @classmethod
-    async def validate(cls, message: Message, match: Match, data: RawNoteModel) -> Any:  # type: ignore
+    async def validate(cls, message: Message, match: Match, data: RawNoteModel) -> Any:
 
         if (btn_type := match.group('type')) not in BUTTONS:
             return
 
         button_data = ButtonDataModel(text=match.group('text'), data=match.group('data'), button_type=btn_type)
-        if validator := get_validator(BUTTONS[btn_type]['validator']):
-            if validator_cls := get_cls(btn_type):
-                await validator(validator_cls, message, button_data, match.group('data'))
+        validator = BUTTONS[btn_type]['validator']
+        await validator(
+            get_cls(btn_type), **cls._generate_kwargs(
+                validator, message=message, data=button_data, arg=match.group('data')
+            )
+        )
 
         if match.group('row') is not None:
             button_data.same_row = True
@@ -82,12 +87,14 @@ class NoteButtons(BaseFormatPlugin):
         buttons = []
         if btn_data := getattr(data, 'buttons', None):
             for button in btn_data:  # type: ButtonDataModel
-                if compiler := get_compiler(button.button_type):
-                    btn = InlineKeyboardButton(text=button.text)
-                    await compiler(
-                        get_cls(button.button_type), message, button, btn, chat, user
+                compiler = BUTTONS[button.button_type]['compiler']
+                btn = InlineKeyboardButton(text=button.text)
+                await compiler(
+                    get_cls(button.button_type), **cls._generate_kwargs(
+                        compiler, message=message, data=button, payload=btn, chat=chat, user=user
                     )
-                    buttons.append([btn])
+                )
+                buttons.append([btn])
             payload.reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
 
     @classmethod
@@ -104,27 +111,10 @@ class NoteButtons(BaseFormatPlugin):
                 payload.text += "\n"
                 payload.text += syntax
 
-
-def get_compiler(
-        button_type: str
-) -> Optional[Callable[[type, Message, ButtonDataModel, InlineKeyboardButton, Chat, Optional[User]], Any]]:
-    if button_type not in BUTTONS:
-        return None
-    compiler = BUTTONS[button_type]['compiler']
-    return compiler
-
-
-def get_validator(
-        validator: Callable[..., Any]
-) -> Optional[Callable[[type, Message, ButtonDataModel, str], Any]]:
-    args = set(list(signature(validator).parameters.keys())[3:])
-
-    if args == {}:
-        return lambda cls, message, data, arg: validator(cls, message, data)
-    elif args == {'arg'} or 'kwargs' in args:
-        return lambda cls, message, data, arg: validator(cls, message, data, arg=arg)
-    else:
-        return None
+    @classmethod
+    def _generate_kwargs(cls, func: Callable[..., Any], **kwargs: Any) -> dict:
+        spec = inspect.getfullargspec(func)
+        return {key: value for key, value in kwargs.items() if key in spec.args}
 
 
 def get_cls(button: str) -> type:
@@ -169,21 +159,19 @@ class BaseNoteButton(metaclass=_BaseNoteButtonMeta):
     name: str
     button_type: Literal['callback', 'url'] = 'callback'
 
-    @classmethod
-    async def validate(cls, *args: Any, **kwargs: Any) -> Any:
-        pass
+    if TYPE_CHECKING:
+        validate: Callable[..., Awaitable[Any]]
+        compiler: Callable[..., Awaitable[Any]]
+    else:
 
-    @classmethod
-    async def compiler(
-            cls,
-            message: Message,
-            data: ButtonDataModel,
-            payload: InlineKeyboardButton,
-            chat: Chat,
-            user: Optional[User]
-    ) -> Any:
-        """should return callback data, fast as possible"""
-        pass
+        @classmethod
+        async def validate(cls, *args: Any, **kwargs: Any) -> Any:
+            pass
+
+        @classmethod
+        async def compiler(cls, *args: Any, **kwargs: Any) -> Any:
+            """should return callback data, fast as possible"""
+            pass
 
 
 class URLButton(BaseNoteButton):
@@ -191,19 +179,12 @@ class URLButton(BaseNoteButton):
     button_type: Literal['url'] = "url"
 
     @classmethod
-    async def validate(cls, message: Message, data: ButtonDataModel, arg: str) -> Any:  # type: ignore
+    async def validate(cls, message: Message, data: ButtonDataModel, arg: str) -> Any:
         match = re.match(r"(//)?(?P<url>.+)", arg)
         if match is not None:
             data.__setattr__('url', match.group('url'))
 
     @classmethod
-    async def compiler(
-            cls,
-            message: Message,
-            data: ButtonDataModel,
-            payload: InlineKeyboardButton,
-            chat: Chat,
-            user: Optional[User]
-    ) -> Any:
+    async def compiler(cls, data: ButtonDataModel, payload: InlineKeyboardButton) -> Any:
         if url := getattr(data, 'url', None):
             payload.url = url

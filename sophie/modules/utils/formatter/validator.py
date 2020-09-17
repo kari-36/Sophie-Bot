@@ -18,9 +18,10 @@
 
 from __future__ import annotations
 
-import re
-from typing import Any, Callable, Generator, Literal, TYPE_CHECKING, Union
+import inspect
+from typing import Any, Callable, Generator, TYPE_CHECKING
 
+from sophie.components.localization import GetString
 from .plugins.bases import get_all_plugins
 
 if TYPE_CHECKING:
@@ -40,36 +41,31 @@ class _Validate:
         return await self.validate()
 
     @classmethod
-    def __get_validator(cls, validator: Callable[..., Any]) -> Union[Literal[False], Callable[..., Any]]:
-        from inspect import signature
-        args = set(list(signature(validator).parameters.keys())[1:])
-
-        if args == {}:
-            return lambda message, match, data: validator(message)
-        elif args == {'match'}:
-            return lambda message, match, data: validator(message, match=match)
-        elif args == {'data'}:
-            return lambda message, match, data: validator(message, data=data)
-        elif args == {'match', 'data'}:
-            return lambda message, match, data: validator(message, match=match, data=data)
-        else:
-            return False
+    def generate_kwargs(cls, validator: Callable[..., Any], **kwargs: Any) -> dict:
+        spec = inspect.getfullargspec(validator)
+        return {key: value for key, value in kwargs.items() if key in spec.args}
 
     async def validate(self) -> bool:
         for plugin in get_all_plugins():
-            if validator := self.__get_validator(plugin.validate):
+            try:
                 if plugin.__syntax__:
                     if self.data.text is not None:
-                        for match in re.finditer(plugin.__syntax__, self.data.text):
-                            try:
-                                await validator(self.message, match, self.data)
-                            except (TypeError, ValueError, AssertionError):
-                                return False
+                        for match in plugin.__syntax__.finditer(self.data.text):
+                            kwargs = self.generate_kwargs(
+                                plugin.validate, message=self.message, data=self.data, match=match
+                            )
+                            await plugin.validate(**kwargs)
                 else:
-                    try:
-                        await validator(self.message, None, self.data)
-                    except (TypeError, ValueError, AssertionError):
-                        return False
+                    kwargs = self.generate_kwargs(
+                        plugin.validate, message=self.message, data=self.data
+                    )
+                    await plugin.validate(**kwargs)
+            except (TypeError, ValueError, AssertionError) as err:
+                if err.args:
+                    await self.message.reply(
+                        await GetString(key=err.args[0]).get_by_chat_id(self.message.chat.id)
+                    )
+                return False
         return True
 
     def __await__(self, message: Message, data: RawNoteModel) -> Generator[Any, None, bool]:

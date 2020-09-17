@@ -27,7 +27,7 @@ from string import Formatter
 from .bases import BaseFormatPlugin
 
 if TYPE_CHECKING:
-    from ..compiler import ParsedNoteModel, RawNoteModel
+    from ..compiler import ParsedNoteModel
     from aiogram.api.types import Chat, Message, User
 
 
@@ -35,7 +35,7 @@ class Variables(BaseFormatPlugin):
 
     @classmethod
     async def compile_(
-            cls, message: Message, data: RawNoteModel, payload: ParsedNoteModel, chat: Chat, user: Optional[User]
+            cls, message: Message, payload: ParsedNoteModel, chat: Chat, user: Optional[User]
     ) -> Any:
         if payload.text is not None:
             text = await _populateVars(
