@@ -15,7 +15,7 @@
 #
 # This file is part of Sophie.
 
-from typing import Any, TYPE_CHECKING, Type
+from typing import Any, Callable, Optional, Protocol, TYPE_CHECKING, Type
 
 from sophie.utils.logging import log
 from sophie.utils.bases import BaseComponent
@@ -25,10 +25,18 @@ from .config import __config__
 if TYPE_CHECKING:
     from . import strings
 
-    get_string_dec: strings.get_strings_dec  # type: ignore
+    class GetStringsDecType(Protocol):
+        def __call__(self, func: Callable[..., Any]) -> Callable[..., Any]:
+            ...
+
+    class GetStringFuncType(Protocol):
+        def __call__(self, module: Optional[str] = None, *, key: str, chat_id: int) -> str:
+            ...
+
+    get_string_dec: GetStringsDecType
     Strings: Type[strings.Strings]
     GetStrings: Type[strings.GetStrings]
-    GetString: Type[strings.GetString]
+    GetString: GetStringFuncType
 
 
 class Component(BaseComponent):

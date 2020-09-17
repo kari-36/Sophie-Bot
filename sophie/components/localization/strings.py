@@ -1,4 +1,5 @@
 # Copyright (C) 2018 - 2020 MrYacha.
+# Copyright (C) 2020 Jeepeo
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -15,7 +16,9 @@
 #
 # This file is part of Sophie.
 
-from typing import Optional, Union, TypeVar, Any, Dict, cast, Callable
+from __future__ import annotations
+
+from typing import Optional, TypeVar, Any, Dict, cast, Callable
 
 from aiogram.dispatcher.handler import MessageHandler
 from babel.core import Locale
@@ -26,43 +29,51 @@ from .loader import GLOBAL_TRANSLATIONS
 
 
 class GetStrings:
+    # !! dont access these
+    translations: Dict[str, Dict[str, str]]
+    locale_code: str
+
     def __init__(self, module: Optional[str] = None):
         from sophie.utils.loader import LOADED_MODULES
 
         self.modules = LOADED_MODULES
         self.module = module
 
-    def get_by_locale_name(self, locale_code: str) -> Dict[str, str]:
+    def get_by_locale_name(self, locale_code: str) -> GetStrings:
         if not self.module:
-            translations = GLOBAL_TRANSLATIONS
+            self.translations = GLOBAL_TRANSLATIONS
         else:
-            translations = self.modules[self.module].data['translations']
+            self.translations = self.modules[self.module].data['translations']
 
-        if locale_code not in translations:
-            locale_code = 'en-US'
+        self.locale_code = locale_code
+        if locale_code not in self.translations:
+            self.locale_code = 'en-US'
 
-        return translations[locale_code]
+        return self
 
-    async def get_by_chat_id(self, chat_id: int) -> Dict[str, str]:
+    async def get_by_chat_id(self, chat_id: int) -> GetStrings:
         locale_name = await get_chat_locale(chat_id)
         return self.get_by_locale_name(locale_name)
 
-    def __getitem__(self, locale_name: str) -> Dict[str, str]:
-        return self.get_by_locale_name(locale_name)
+    def __getitem__(self, key: str) -> str:
+        fallback_locale = 'en-US'
+
+        if not hasattr(self, 'translations'):
+            raise RuntimeError(
+                "GetStrings should initialised and should call either `get_by_locale_name` or `get_by_chat_id`"
+            )
+
+        try:
+            return self.translations[self.locale_code][key]
+        except IndexError:
+            if key not in self.translations[fallback_locale]:
+                raise
+            return self.translations[fallback_locale][key]
 
 
-class GetString:
-    def __init__(self, module: Optional[str] = None, *, key: str):
-        self.module = module
-        self.key = key
-
-    def get_by_locale_name(self, locale_code: str) -> Dict[str, str]:
-        strings = GetStrings(self.module)[locale_code]  # type: ignore
-        return strings
-
-    async def get_by_chat_id(self, chat_id: int) -> str:
-        locale_code = await get_chat_locale(chat_id)
-        return self.get_by_locale_name(locale_code)[self.key]
+async def GetString(module: Optional[str] = None, *, key: str, chat_id: int) -> str:
+    translations = await GetStrings(module).get_by_chat_id(chat_id)
+    return translations[key]
 
 
 class Strings:
@@ -94,7 +105,7 @@ class Strings:
     def emoji(self) -> str:
         return get_language_emoji(self.locale_code)
 
-    def __getitem__(self, key: str) -> Union[str, dict]:
+    def __getitem__(self, key: str) -> str:
         return self._get_string(key)
 
 
