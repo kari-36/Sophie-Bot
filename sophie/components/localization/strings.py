@@ -60,9 +60,9 @@ class GetString:
         strings = GetStrings(self.module)[locale_code]  # type: ignore
         return strings
 
-    async def get_by_chat_id(self, chat_id: int) -> Dict[str, str]:
+    async def get_by_chat_id(self, chat_id: int) -> str:
         locale_code = await get_chat_locale(chat_id)
-        return self.get_by_locale_name(locale_code)
+        return self.get_by_locale_name(locale_code)[self.key]
 
 
 class Strings:
