@@ -36,14 +36,14 @@ class GetStrings:
     def __init__(self, module: Optional[str] = None):
         from sophie.utils.loader import LOADED_MODULES
 
-        self.modules = LOADED_MODULES
+        self._modules = LOADED_MODULES
         self.module = module
 
     def get_by_locale_name(self, locale_code: str) -> GetStrings:
         if not self.module:
             self.translations = GLOBAL_TRANSLATIONS
         else:
-            self.translations = self.modules[self.module].data['translations']
+            self.translations = self._modules[self.module].data['translations']
 
         self.locale_code = locale_code
         if locale_code not in self.translations:
@@ -63,12 +63,24 @@ class GetStrings:
                 "GetStrings should initialised and should call either `get_by_locale_name` or `get_by_chat_id`"
             )
 
-        try:
-            return self.translations[self.locale_code][key]
-        except IndexError:
-            if key not in self.translations[fallback_locale]:
-                raise
-            return self.translations[fallback_locale][key]
+        if key in (translations := self.translations[self.locale_code]):
+            return translations[key]
+
+        elif key in (translations := self.translations[fallback_locale]):
+            return translations[key]
+
+        elif key in (translations := GLOBAL_TRANSLATIONS.get(self.locale_code, GLOBAL_TRANSLATIONS[fallback_locale])):
+            return translations[key]
+
+        else:
+            return key
+
+    def __repr__(self) -> str:
+        # debugging
+        attrs = ", ".join(repr(v) if k is None else f'{k}={v!r}' for k, v in self.__dict__.items()
+                          if not k.startswith('_'))
+        cls = self.__class__.__name__
+        return f"{cls}({attrs})"
 
 
 async def GetString(module: Optional[str] = None, *, key: str, chat_id: int) -> str:
@@ -107,6 +119,12 @@ class Strings:
 
     def __getitem__(self, key: str) -> str:
         return self._get_string(key)
+
+    def __repr__(self) -> str:
+        # debugging
+        attrs = ", ".join(repr(v) if k is None else f'{k}={v!r}' for k, v in self.__dict__.items())
+        cls = self.__class__.__name__
+        return f"{cls}({attrs})"
 
 
 T = TypeVar("T", bound=Callable[..., Any])
