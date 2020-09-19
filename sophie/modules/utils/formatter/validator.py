@@ -19,7 +19,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable, Generator, TYPE_CHECKING
+from typing import Any, Callable, List, Optional, TYPE_CHECKING
 
 from sophie.components.localization import GetString
 from .plugins.bases import get_all_plugins
@@ -32,13 +32,24 @@ if TYPE_CHECKING:
 class _Validate:
 
     async def __call__(
-            self, message: Message, data: RawNoteModel
+            self, message: Message,
+            data: RawNoteModel,
+            excluded: Optional[List[str]] = None,
+            included: Optional[List[str]] = None
     ) -> bool:
 
         self.message = message
         self.data = data
+        self.excluded = excluded
+        self.included = included
 
-        return await self.validate()
+        # vars
+        self.plugins: List[str] = []
+
+        result = await self.validate()
+        if self.plugins:
+            self.data.plugins = self.plugins
+        return result
 
     @classmethod
     def generate_kwargs(cls, validator: Callable[..., Any], **kwargs: Any) -> dict:
@@ -46,7 +57,7 @@ class _Validate:
         return {key: value for key, value in kwargs.items() if key in spec.args}
 
     async def validate(self) -> bool:
-        for plugin in get_all_plugins():
+        for plugin in get_all_plugins(included=self.included, excluded=self.excluded):
             try:
                 if plugin.__syntax__:
                     if self.data.text is not None:
@@ -66,10 +77,8 @@ class _Validate:
                         await GetString(key=err.args[0]).get_by_chat_id(self.message.chat.id)
                     )
                 return False
+            self.plugins.append(plugin.__name__)
         return True
-
-    def __await__(self, message: Message, data: RawNoteModel) -> Generator[Any, None, bool]:
-        return self.__call__(message, data).__await__()
 
 
 validate = _Validate()

@@ -19,7 +19,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable, Optional, TYPE_CHECKING, Union
+from typing import Any, Callable, List, Optional, TYPE_CHECKING, Union
 
 from aiogram.api.types import (
     ForceReply, InlineKeyboardMarkup, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove
@@ -48,6 +48,7 @@ class ParsedNoteModel(BaseModel):
 class RawNoteModel(BaseModel):
 
     text: Optional[str] = None
+    plugins: Optional[List[str]] = None
     document: Optional[DocumentModel] = None
 
     async def compile_(
@@ -57,7 +58,7 @@ class RawNoteModel(BaseModel):
             chat = message.chat
 
         payload = ParsedNoteModel(text=self.text)
-        for plugin in get_all_plugins():
+        for plugin in get_all_plugins(included=self.plugins):
             kwargs = self._generate_kwargs(
                 plugin.compile_, message=message, data=self, payload=payload, chat=chat, user=user
             )
@@ -74,7 +75,7 @@ class RawNoteModel(BaseModel):
         if self.text is not None:
             payload.text = self.text
 
-        for plugin in get_all_plugins():
+        for plugin in get_all_plugins(included=self.plugins):
             kwargs = self._generate_kwargs(
                 plugin.decompile, message=message, data=self, payload=payload, chat=chat, user=user
             )
@@ -138,6 +139,7 @@ class RawNoteModel(BaseModel):
         return await request(
             chat_id=message.chat.id,
             reply_to_message_id=reply_id,
+            parse_mode=bot.parse_mode,
             **kwargs
         )
 

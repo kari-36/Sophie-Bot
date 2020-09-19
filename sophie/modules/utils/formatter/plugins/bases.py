@@ -18,7 +18,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, List, Optional, TYPE_CHECKING, Type
+from typing import Any, Awaitable, Callable, Generator, List, Optional, TYPE_CHECKING, Type
 
 if TYPE_CHECKING:
     from re import Pattern
@@ -46,5 +46,14 @@ class BaseFormatPlugin:
             pass
 
 
-def get_all_plugins() -> List[Type[BaseFormatPlugin]]:
-    return BaseFormatPlugin.__subclasses__()
+def get_all_plugins(
+        included: Optional[List[str]] = None, excluded: Optional[List[str]] = None
+) -> Generator[Type[BaseFormatPlugin], Any, None]:
+    for plugin in BaseFormatPlugin.__subclasses__():
+        if included is not None:
+            if plugin.__name__ not in included:
+                continue
+        elif excluded is not None:
+            if plugin.__name__ in excluded:
+                continue
+        yield plugin

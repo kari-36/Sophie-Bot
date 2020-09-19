@@ -21,7 +21,7 @@ from __future__ import annotations
 import html
 import re
 
-from typing import Any, Generator, Literal, Optional, TYPE_CHECKING, Union
+from typing import List, Literal, Optional, TYPE_CHECKING, Union
 
 from .parser import ParseError
 from .validator import validate
@@ -33,14 +33,28 @@ if TYPE_CHECKING:
 
 class _Format:
 
-    def __init__(self, default_parser: Literal['md', 'html', 'none']):
+    def __init__(
+            self, default_parser: Literal['md', 'html', 'none'],
+    ):
         self._default_parser = default_parser
 
     async def __call__(
-            self, message: Message, text: Optional[str] = None
+            self,
+            message: Message,
+            text: Optional[str] = None,
+            excluded_plugins: Optional[List[str]] = None,
+            included_plugins: Optional[List[str]] = None
     ) -> Union[RawNoteModel, Literal[False]]:
         self._message = message
         self._text = text or message.text or message.caption
+
+        if excluded_plugins and included_plugins:
+            raise ValueError(
+                "Expected either `excluded_plugins` or `included_plugins`, not both!"
+            )
+        self.excluded_plugins = excluded_plugins
+        self.included_plugins = included_plugins
+
         return await self.parse()
 
     def __get_parse_mode(self) -> str:
@@ -59,7 +73,7 @@ class _Format:
         parser = self.__get_parse_mode()
         data = RawNoteModel(text=self._text)
 
-        if not await validate(self._message, data):
+        if not await validate(self._message, data, self.excluded_plugins, self.included_plugins):
             return False
 
         if self._text and data.text:
@@ -91,12 +105,6 @@ class _Format:
                 data.text = html.escape(data.text, quote=False)
 
         return data
-
-    def __await__(
-            self, message: Message, text: Optional[str] = None
-    ) -> Generator[Any, None, Union[RawNoteModel, Literal[False]]]:
-
-        return self.__call__(message, text).__await__()
 
 
 Format = _Format(default_parser='md')
