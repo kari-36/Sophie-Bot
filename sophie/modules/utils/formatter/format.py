@@ -23,7 +23,7 @@ import re
 
 from typing import List, Literal, Optional, TYPE_CHECKING, Union
 
-from .parser import ParseError
+from .parser import HTML, Markdown, ParseError
 from .validator import validate
 from .compiler import RawNoteModel
 
@@ -33,9 +33,7 @@ if TYPE_CHECKING:
 
 class _Format:
 
-    def __init__(
-            self, default_parser: Literal['md', 'html', 'none'],
-    ):
+    def __init__(self, default_parser: Literal['md', 'html', 'none']):
         self._default_parser = default_parser
 
     async def __call__(
@@ -46,7 +44,7 @@ class _Format:
             included_plugins: Optional[List[str]] = None
     ) -> Union[RawNoteModel, Literal[False]]:
         self._message = message
-        self._text = text or message.text or message.caption
+        self._text = text  # should pass text if. and enitities must unparsed in HTML
 
         if excluded_plugins and included_plugins:
             raise ValueError(
@@ -77,33 +75,18 @@ class _Format:
             return False
 
         if self._text and data.text:
-
-            if parser == 'html':
-                from .parser import HTML, UnpackEntitiesHTML
+            if parser in ('html', 'md'):
+                if parser == 'html':
+                    callback = HTML.parse
+                else:
+                    callback = Markdown.parse
                 try:
-                    data.text = HTML.parse(
-                        UnpackEntitiesHTML().unparse(
-                            data.text,
-                            self._message.entities or self._message.caption_entities
-                        )
-                    )
+                    data.text = callback(data.text)
                 except ParseError as error:
                     await self._message.answer(f"Unable to compile: {html.escape(error.text, False)}")
                     return False
-
-            elif parser == 'md':
-                from .parser import Markdown, UnpackEntitiesMD
-
-                data.text = Markdown.parse(
-                    UnpackEntitiesMD().unparse(
-                        data.text,
-                        self._message.entities or self._message.caption_entities
-                    )
-                )
-
             else:
                 data.text = html.escape(data.text, quote=False)
-
         return data
 
 

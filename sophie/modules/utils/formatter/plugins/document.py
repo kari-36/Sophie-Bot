@@ -47,11 +47,13 @@ class Document(BaseFormatPlugin):
         file_id, file_type = cls.__get_fileinfo(message)
         if not (file_id and file_type):
             # check document in reply message
-            if message.reply_to_message:
-                file_id, file_type = cls.__get_fileinfo(message.reply_to_message)
-                if not (file_id and file_type):
-                    assert data.text is not None, 'invalid_document'
-                    return False
+            if not message.reply_to_message:
+                return False
+
+            file_id, file_type = cls.__get_fileinfo(message.reply_to_message)
+            if not (file_id and file_type):
+                assert data.text is not None, 'invalid_document'
+                return False
 
             if data.text:
                 assert len(data.text) <= 1024, 'media_caption_too_long'

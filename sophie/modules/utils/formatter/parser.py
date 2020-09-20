@@ -16,12 +16,11 @@
 #
 # This file is part of Sophie.
 
-import html
 import re
 from html.parser import HTMLParser
 from typing import Any, List, Tuple, Optional
 
-from aiogram.utils.text_decorations import HtmlDecoration, MarkdownDecoration
+from aiogram.utils.text_decorations import HtmlDecoration
 
 TG_TAGS = {
     "s", "b", "strong",  # bold
@@ -119,8 +118,6 @@ class Markdown:
 
     @classmethod
     def parse(cls, text: str) -> str:
-        text = html.escape(text, quote=False)
-
         delims: List[Tuple[str, int]] = []
         is_fixed_width = False
         _addition_offset = 0
@@ -171,7 +168,7 @@ class Markdown:
                 text = cls.replace_once(text, delim, tag, offset)
                 _addition_offset += cls._get_offset(tag, delim)
 
-        return text
+        return HTML.parse(text)
 
     @classmethod
     def _get_offset(cls, new: str, old: str) -> int:
@@ -180,24 +177,6 @@ class Markdown:
     @staticmethod
     def replace_once(source: str, old: str, new: str, start: int) -> str:
         return source[:start] + source[start:].replace(old, new, 1)
-
-
-class UnpackEntitiesMD(MarkdownDecoration):
-
-    def quote(self, value: str) -> str:
-        return value
-
-    def bold(self, value: str) -> str:
-        return f"**{value}**"
-
-    def italic(self, value: str) -> str:
-        return f"__{value}__"
-
-    def underline(self, value: str) -> str:
-        return f"++{value}++"
-
-    def strikethrough(self, value: str) -> str:
-        return f"~~{value}~~"
 
 
 class UnpackEntitiesHTML(HtmlDecoration):
