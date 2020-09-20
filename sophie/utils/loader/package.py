@@ -29,14 +29,16 @@ from .requirements import check_requirements
 
 
 class Package:
-    data: Dict[Any, Any] = {}
-    version: Optional[str] = None
 
     def __init__(self, type: str, name: str, path: Path):  # noqa: A002
         self.type = type
         self.name = name
         self.path = path
         self.python_path = str(self.path).replace('/', '.')
+
+        # vars
+        self.data: Dict[Any, Any] = {}
+        self.version: Optional[str] = None
 
         if not path.exists():
             raise FileNotFoundError
@@ -99,6 +101,12 @@ class Package:
             if member.__name__ not in {'BaseModule', 'BaseComponent'}:
                 return True
         return False
+
+    def __repr__(self) -> str:
+        # debugging
+        attrs = ", ".join(repr(v) if k is None else f'{k}={v!r}' for k, v in self.__dict__.items())
+        cls = self.__class__.__name__
+        return f"{cls}({attrs})"
 
 
 class Module(Package):
