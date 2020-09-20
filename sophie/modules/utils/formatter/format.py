@@ -19,7 +19,6 @@
 from __future__ import annotations
 
 import html
-import re
 
 from typing import List, Literal, Optional, TYPE_CHECKING, Union
 
@@ -40,11 +39,13 @@ class _Format:
             self,
             message: Message,
             text: Optional[str] = None,
+            parse_mode: Optional[str] = None,
             excluded_plugins: Optional[List[str]] = None,
             included_plugins: Optional[List[str]] = None
     ) -> Union[RawNoteModel, Literal[False]]:
         self._message = message
         self._text = text  # should pass text if. and enitities must unparsed in HTML
+        self.parse_mode = parse_mode
 
         if excluded_plugins and included_plugins:
             raise ValueError(
@@ -55,20 +56,8 @@ class _Format:
 
         return await self.parse()
 
-    def __get_parse_mode(self) -> str:
-        if not self._text:
-            return self._default_parser
-
-        match = re.search(r'%PARSEMODE_(?P<parse_mode>\w+)', self._text)
-        if match is not None:
-            if (mode := match.group('parse_mode')) is not None:
-                if mode.lower() in {'md', 'html', 'none'}:
-                    self._text = re.sub(r'%PARSEMODE_(?P<parse_mode>\w+)\s?', '', self._text, 1)
-                    return mode.lower()
-        return self._default_parser
-
     async def parse(self) -> Union[RawNoteModel, Literal[False]]:
-        parser = self.__get_parse_mode()
+        parser = self.parse_mode or self._default_parser
         data = RawNoteModel(text=self._text)
 
         if not await validate(self._message, data, self.excluded_plugins, self.included_plugins):

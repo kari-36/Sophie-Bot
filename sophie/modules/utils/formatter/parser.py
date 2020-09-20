@@ -16,11 +16,12 @@
 #
 # This file is part of Sophie.
 
+import html
 import re
 from html.parser import HTMLParser
 from typing import Any, List, Tuple, Optional
 
-from aiogram.utils.text_decorations import HtmlDecoration
+from aiogram.utils.text_decorations import HtmlDecoration, MarkdownDecoration
 
 TG_TAGS = {
     "s", "b", "strong",  # bold
@@ -118,6 +119,8 @@ class Markdown:
 
     @classmethod
     def parse(cls, text: str) -> str:
+        text = html.escape(text, quote=False)
+
         delims: List[Tuple[str, int]] = []
         is_fixed_width = False
         _addition_offset = 0
@@ -179,10 +182,41 @@ class Markdown:
         return source[:start] + source[start:].replace(old, new, 1)
 
 
+def get_parse_mode(text: str, default_parser: str = 'md') -> Tuple[str, str]:
+    if not text:
+        return text, default_parser
+
+    match = re.search(r'%PARSEMODE_(?P<parse_mode>\w+)', text)
+    if match is not None:
+        if (mode := match.group('parse_mode')) is not None:
+            if mode.lower() in {'md', 'html', 'none'}:
+                text = re.sub(r'%PARSEMODE_(?P<parse_mode>\w+)\s?', '', text, 1)
+                return text, mode.lower()
+    return text, default_parser
+
+
 class UnpackEntitiesHTML(HtmlDecoration):
 
     def quote(self, value: str) -> str:
         return value
+
+
+class UnpackEntitiesMD(MarkdownDecoration):
+
+    def quote(self, value: str) -> str:
+        return value
+
+    def bold(self, value: str) -> str:
+        return f"**{value}**"
+
+    def italic(self, value: str) -> str:
+        return f"__{value}__"
+
+    def underline(self, value: str) -> str:
+        return f"++{value}++"
+
+    def strikethrough(self, value: str) -> str:
+        return f"~~{value}~~"
 
 
 class ParseError(Exception):

@@ -20,5 +20,9 @@ from .plugins.bases import BaseFormatPlugin
 from .plugins.buttons import BaseNoteButton
 
 from .format import Format
+from .parser import UnpackEntitiesHTML, UnpackEntitiesMD, get_parse_mode
 
-__all__ = ["BaseFormatPlugin", "BaseNoteButton", "Format"]
+unpack_html = UnpackEntitiesHTML().unparse
+unpack_markdown = UnpackEntitiesMD().unparse
+
+__all__ = ["BaseFormatPlugin", "BaseNoteButton", "Format", "unpack_html", "unpack_markdown", "get_parse_mode"]
