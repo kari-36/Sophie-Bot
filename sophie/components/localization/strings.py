@@ -83,8 +83,16 @@ class GetStrings:
         return f"{cls}({attrs})"
 
 
-async def GetString(module: Optional[str] = None, *, key: str, chat_id: int) -> str:
-    translations = await GetStrings(module).get_by_chat_id(chat_id)
+async def GetString(
+        key: str, module: Optional[str] = None, chat_id: Optional[int] = None, locale_code: Optional[str] = None
+) -> str:
+    if chat_id:
+        translations = await GetStrings(module).get_by_chat_id(chat_id)
+    elif locale_code:
+        translations = GetStrings(module).get_by_locale_name(locale_code)
+    else:
+        raise ValueError('Expected either `locale code` or `chat_id`')
+
     return translations[key]
 
 

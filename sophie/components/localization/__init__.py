@@ -30,7 +30,10 @@ if TYPE_CHECKING:
             ...
 
     class GetStringFuncType(Protocol):
-        def __call__(self, module: Optional[str] = None, *, key: str, chat_id: int) -> str:
+        async def __call__(
+                self, key: str, module: Optional[str] = None,
+                chat_id: Optional[int] = None, locale_code: Optional[str] = None
+        ) -> str:
             ...
 
     get_string_dec: GetStringsDecType
