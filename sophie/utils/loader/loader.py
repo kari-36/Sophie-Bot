@@ -31,27 +31,30 @@ if TYPE_CHECKING:
 
 
 async def before_srv_task(packages: List[Package]) -> Any:
-    for package in [m for m in packages if hasattr(m.base, '__setup__')]:
-        log.debug(f"Running __setup__ for: {package.name}")
-        await package.base.__setup__()
-
     for package in [m for m in packages if hasattr(m.base, '__before_serving__')]:
         log.debug(f"Running __before_serving__ for: {package.name}")
         await package.base.__before_serving__()
+
+
+async def setup_task(packages: List[Package]) -> Any:
+    for package in [m for m in packages if hasattr(m.base, '__setup__')]:
+        log.debug(f"Running __setup__ for: {package.name}")
+        await package.base.__setup__()
 
 
 def post_init(loop: AbstractEventLoop) -> Any:
     from . import LOADED_MODULES
     from . import LOADED_COMPONENTS
 
-    # Run before_srv_task for components
-    log.debug("Running before_srv_task for components...")
-    loop.run_until_complete(before_srv_task(list(LOADED_COMPONENTS.values())))
+    package_list: List[Package] = [*LOADED_COMPONENTS.values(), *LOADED_MODULES.values()]
+    # Run setup task
+    log.debug("Running __setup__(s)...")
+    loop.run_until_complete(setup_task(package_list))
     log.debug("...Done!")
 
-    # Run before_srv_task for modules
-    log.debug("Running before_srv_task for modules...")
-    loop.run_until_complete(before_srv_task(list(LOADED_MODULES.values())))
+    # Run before_srv_task
+    log.debug("Running before_srv_task...")
+    loop.run_until_complete(before_srv_task(package_list))
     log.debug("...Done!")
 
 
