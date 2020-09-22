@@ -20,8 +20,9 @@ from __future__ import annotations
 
 import html
 import inspect
+import re
 
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, Callable, Optional, TYPE_CHECKING
 from string import Formatter
 
 from .bases import BaseFormatPlugin
@@ -50,27 +51,31 @@ class _populateVars(Formatter):
         self._variables = variables
 
     async def populate(self, text: str) -> str:
-        results = []
+        spec = None
+        add_offset = 0
+        for match in re.finditer(r'{(?P<attr>[^}]+)}', text):
+            raw_attr = match.group('attr')
+            if '!' in raw_attr:
+                raw_attr, spec = raw_attr.split('!', 1)
 
-        for literal_text, field_name, format_spec, _ in self.parse(text):
-            if literal_text:
-                results.append(literal_text)
+            if attr := getattr(self._variables, raw_attr, None):
+                offset = match.start() + add_offset
 
-            if not field_name:
-                continue
+                value = await self.call_var(attr, spec=spec)
+                text = text[:offset] + re.sub(re.escape(match.group(0)), str(value), text[offset:], 1)
 
-            value = await self._get_value(field_name)
-            results.append(self.format_field(value, format_spec))  # type: ignore
-        return ''.join(results)
+                # update additional offsets
+                add_offset += len(str(value)) - len(match.group(0))
+        return text
 
-    async def _get_value(self, key: str) -> str:
-        if not key.startswith('_'):  # ignore dunders
-            if obj := getattr(self._variables, key, None):
-                if inspect.iscoroutinefunction(obj):
-                    return await obj()
-                else:
-                    return obj()
-        return '{' + key + '}'
+    @classmethod
+    async def call_var(cls, attr: Callable[..., Any], **kwargs: Any) -> Any:
+        spec = inspect.getfullargspec(attr)
+        kwargs = {k: v for k, v in kwargs.items() if k in spec.args}
+        if inspect.iscoroutinefunction(attr):
+            return await attr(**kwargs)
+        else:
+            return attr(**kwargs)
 
 
 class _builtinVars:
@@ -89,10 +94,7 @@ class _builtinVars:
     async def _language_code(self) -> str:
         from sophie.components.localization.locale import get_chat_locale
 
-        if self._chat is not None:
-            chat_id = self._chat.id
-        else:
-            chat_id = self._message.chat.id
+        chat_id = self._chat.id if self._chat is not None else self._message.chat.id
         return await get_chat_locale(chat_id)
 
     def _get_user(self) -> Optional[User]:
@@ -111,34 +113,49 @@ class _builtinVars:
     def _get_chat(self) -> Chat:
         return self._chat or self._message.chat
 
-    def first(self) -> str:
+    def first(self, spec: Optional[str]) -> str:
         """represting first name of user"""
+        if spec in {'reply'}:
+            if (reply := self._message.reply_to_message) and reply.from_user:
+                return reply.from_user.first_name
         user = self._get_user()
         if user:
             return html.escape(user.first_name, quote=False)
         return 'Null'
 
-    def last(self) -> str:
+    def last(self, spec: Optional[str]) -> str:
         # last name of a user
+        if spec in {'reply'}:
+            if (reply := self._message.reply_to_message) and reply.from_user:
+                return reply.from_user.last_name or ''
         user = self._get_user()
         if user and user.last_name:
             return html.escape(user.last_name, quote=False)
         return ''
 
-    def id(self) -> int:  # noqa: A003
+    def fullname(self, spec: Optional[str]) -> str:
+        return self.first(spec) + ' ' + self.last(spec)
+
+    def id(self, spec: Optional[str]) -> int:  # noqa: A003
+        if spec in {'reply'}:
+            if (reply := self._message.reply_to_message) and reply.from_user:
+                return reply.from_user.id
         user = self._get_user()
         if user:
             return user.id
         return 0
 
-    def mention(self) -> str:
+    def mention(self, spec: Optional[str]) -> str:
         raise NotImplementedError
 
-    def username(self) -> str:
+    def username(self, spec: Optional[str]) -> str:
+        if spec in {'reply'}:
+            if (reply := self._message.reply_to_message) and reply.from_user:
+                return reply.from_user.username or self.mention(spec)
         user = self._get_user()
         if user and user.username:
             return '@' + user.username
-        return self.mention()
+        return self.mention(spec)
 
     def chatid(self) -> int:
         chat = self._get_chat()
@@ -150,7 +167,9 @@ class _builtinVars:
 
     def chatnick(self) -> str:
         chat = self._get_chat()
-        return chat.username or self.chatname()
+        if chat.username:
+            return '@' + chat.username
+        return self.chatname()
 
     def date(self) -> str:
         raise NotImplementedError

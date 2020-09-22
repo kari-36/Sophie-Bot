@@ -60,15 +60,20 @@ formatting_help: |-
 
   <u>Variables</u>
   Here's some supported variables.
-  <code>{id}</code> Unique ID of the user.
-  <code>{first}</code> for first name of user.
-  <code>{last}</code> for last name of user, can be empty!.
-  <code>{mention}</code> for mention-ing user with their first name.
-  <code>{username}</code> yes! mentions by username, if there's no username, mentions by first name.
-  <code>{fullname}</code> full name of the user.
+  <code>{id}</code> Unique ID of the user. (spec supported, <code>!reply</code>)
+  <code>{first}</code> for first name of user. (spec supported, <code>!reply</code>)
+  <code>{last}</code> for last name of user, can be empty!. (spec supported, <code>!reply</code>)
+  <code>{mention}</code> for mention-ing user with their first name. (spec supported, <code>!reply</code>)
+  <code>{username}</code> yes! mentions by username, if there's no username, mentions by first name. (spec supported, <code>!reply</code>)
+  <code>{fullname}</code> full name of the user. (spec supported, <code>!reply</code>)
   <code>{chatid}</code> ID of the chat
   <code>{chatname}</code> title of the chat.
   <code>{chatnick}</code> username of the chat.
+
+  You can add specifiers in certain variables, for example, if you want to mention user you replied to,
+  <code>Hey {mention!reply}</code>
+  Now this mentions the user you had replied to, don't worry, if there's no replied message it would work like as it before
+  Only certain variables support this, those who has 'specs supported' in brackets, rest in monospace is supported specifiers
 
   Don't know how to use variables?
   An example is: '<code>HeOwO {first}</code>!', {first} would be replaced by first name of user.
