@@ -23,12 +23,13 @@ try:
     from sophie.components.help.decorators import include_help
     from sophie.components.localization import GetString
     from sophie.components.localization.loader import LANGUAGES
-except IndexError:
-    include_help = None
 
-if include_help:
-    @include_help
-    def formatting_help() -> Dict[str, str]:
+except ImportError:
+    pass
+
+else:
+    @include_help('formatting')
+    async def formatting_help() -> Dict[str, str]:
         payload = {}
         for locale in LANGUAGES:
             with suppress(KeyError):

@@ -74,7 +74,7 @@ class _Validate:
             except (TypeError, ValueError, AssertionError) as err:
                 if err.args:
                     await self.message.reply(
-                        await GetString(key=err.args[0]).get_by_chat_id(self.message.chat.id)
+                        await GetString(key=err.args[0], chat_id=self.message.chat.id)
                     )
                 return False
             self.plugins.append(plugin.__name__)
