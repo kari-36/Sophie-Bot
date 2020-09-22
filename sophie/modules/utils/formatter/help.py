@@ -16,15 +16,22 @@
 #
 # This file is part of Sophie.
 
-from . import help
+from contextlib import suppress
+from typing import Dict
 
-from .plugins.bases import BaseFormatPlugin
-from .plugins.buttons import BaseNoteButton
+try:
+    from sophie.components.help.decorators import include_help
+    from sophie.components.localization import GetString
+    from sophie.components.localization.loader import LANGUAGES
+except IndexError:
+    include_help = None
 
-from .format import Format
-from .parser import UnpackEntitiesHTML, UnpackEntitiesMD, get_parse_mode
-
-unpack_html = UnpackEntitiesHTML().unparse
-unpack_markdown = UnpackEntitiesMD().unparse
-
-__all__ = ["BaseFormatPlugin", "BaseNoteButton", "Format", "unpack_html", "unpack_markdown", "get_parse_mode"]
+if include_help:
+    @include_help
+    def formatting_help() -> Dict[str, str]:
+        payload = {}
+        for locale in LANGUAGES:
+            with suppress(KeyError):
+                _help = await GetString('formatting_help', locale_code=locale)
+                payload[locale] = _help
+        return payload

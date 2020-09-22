@@ -23,6 +23,56 @@ no_args:fields: "Not enough arghs! missing field '{field}'"
 invalid_document: "The document specified is unsupported or invalid !"
 media_caption_too_long: "Caption is too long. should be less than 1024 characters!"
 
+formatting_help: |-
+  <i>Decorate your text with MrPropper</i>
+
+  <u>Parsing</u>
+  By default, Sophie format your texts with HTML.
+  You can change parse mode to 'Markdown' or 'None'
+
+  for example, you could change parse mode to Markdown by following syntax:
+  <code>%PARSEMODE_MD</code> (Replace 'MD' with 'None' if you dont want to parse your text)
+
+  Recently Telegram added formatting options to their clients, thus we also support inbuilt formatting.
+  We found out that it is the most feasible method to format texts.
+  Although we discourage you to use both inbuilt formatting and Sophie's formatting simultaneously
+
+  Here's some supported HTML tags,
+
+  <code>&lt;b&gt;Bold&lt;/b&gt;</code> for <b>Bold</b>
+  <code>&lt;i&gt;Italics&lt;/i&gt;</code> for <i>Italics</i>
+  <code>&lt;s&gt;Strikethrough&lt;/s&gt;</code> for <s>Strikethrough</s>
+  <code>&lt;u&gt;Underline&lt;/u&gt;</code> for <u>Underline</u>
+  <code>&lt;a href="wiki.sophiebot.gq"&gt;link&lt;/a&gt;</code> for <a href="wiki.sophiebot.gq">link</a>
+  <code>&lt;code&gt;Monospace&lt;/code&gt;</code> for <code>Monospace</code>
+
+  <u>Webpage preview</u>
+  To have webpage in your message, just add <code>%PREVIEW</code> in your text.
+
+  <u>Buttons</u>
+  You could find help about adding <i>module-based</i> buttons in their respective help pages such as notes, rules, etc..
+  Here, We gonna talk about some general buttons which ain't based on modules, specifically, URL buttons.
+
+  Do you want to add a link to your website in welcome message? Do this
+  <code>[button name](url:https://www.google.com)</code> thats it!
+
+  Again, you can find help about similar buttons in their respective pages!
+
+  <u>Variables</u>
+  Here's some supported variables.
+  <code>{id}</code> Unique ID of the user.
+  <code>{first}</code> for first name of user.
+  <code>{last}</code> for last name of user, can be empty!.
+  <code>{mention}</code> for mention-ing user with their first name.
+  <code>{username}</code> yes! mentions by username, if there's no username, mentions by first name.
+  <code>{fullname}</code> full name of the user.
+  <code>{chatid}</code> ID of the chat
+  <code>{chatname}</code> title of the chat.
+  <code>{chatnick}</code> username of the chat.
+
+  Don't know how to use variables?
+  An example is: '<code>HeOwO {first}</code>!', {first} would be replaced by first name of user.
+
 # component: Help
 help_menu_header: |-
   Hey, Welcome to help menu!
