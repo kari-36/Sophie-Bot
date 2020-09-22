@@ -73,7 +73,7 @@ class GetStrings:
             return translations[key]
 
         else:
-            return key
+            raise KeyError(key)
 
     def __repr__(self) -> str:
         # debugging
