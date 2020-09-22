@@ -16,12 +16,14 @@
 #
 # This file is part of Sophie.
 
-# utils: formatting
-no_args: "Not enough args!"
-no_args:fields: "Not enough arghs! missing field '{field}'"
+from sophie.utils.bases import BaseComponent
+from .config import __config__
 
-# component: Help
-help_menu_header: |-
-  Hey, Welcome to help menu!
-  The Menu contains only short, summarized information about commands, etc..
-  For Advanced help, checkout our <a href="wiki.sophiebot.gq">wiki</a>
+
+class Help(BaseComponent):
+    configurations = __config__
+
+    @classmethod
+    async def __before_serving__(cls) -> None:
+        from .loader import load
+        await load()

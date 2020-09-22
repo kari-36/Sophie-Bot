@@ -63,6 +63,9 @@ class ComponentConfig(BaseModel):
         from sophie.components.caching import __config__ as cacheConfig
         caching: cacheConfig
 
+        from sophie.components.help import __config__ as HelpConfig
+        help: HelpConfig  # noqa
+
     class Config:
         extra = Extra.allow
 

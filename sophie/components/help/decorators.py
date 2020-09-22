@@ -15,13 +15,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # This file is part of Sophie.
+from typing import Any, Awaitable, Callable, Dict, TypeVar
 
-# utils: formatting
-no_args: "Not enough args!"
-no_args:fields: "Not enough arghs! missing field '{field}'"
+EXTERNAL_HELPFUNCS: Dict[str, Callable[..., Awaitable[Dict[str, str]]]] = {}
 
-# component: Help
-help_menu_header: |-
-  Hey, Welcome to help menu!
-  The Menu contains only short, summarized information about commands, etc..
-  For Advanced help, checkout our <a href="wiki.sophiebot.gq">wiki</a>
+F = TypeVar("F", bound=Callable[..., Any])
+
+
+def include_help(module: str) -> Callable[[F], None]:
+    def wrapped(func: F) -> None:
+        EXTERNAL_HELPFUNCS[module.capitalize()] = func
+    return wrapped

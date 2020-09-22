@@ -16,12 +16,9 @@
 #
 # This file is part of Sophie.
 
-# utils: formatting
-no_args: "Not enough args!"
-no_args:fields: "Not enough arghs! missing field '{field}'"
+from pydantic import BaseModel
 
-# component: Help
-help_menu_header: |-
-  Hey, Welcome to help menu!
-  The Menu contains only short, summarized information about commands, etc..
-  For Advanced help, checkout our <a href="wiki.sophiebot.gq">wiki</a>
+
+class __config__(BaseModel):
+
+    base_url: str = 'https://wiki.sophiebot.gq/{0}'
