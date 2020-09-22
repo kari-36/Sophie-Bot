@@ -64,11 +64,8 @@ class _Format:
             return False
 
         if self._text and data.text:
-            if parser in ('html', 'md'):
-                if parser == 'html':
-                    callback = HTML.parse
-                else:
-                    callback = Markdown.parse
+            if parser in ('html', 'md', 'markdown'):
+                callback = HTML.parse if parser == 'html' else Markdown.parse
                 try:
                     data.text = callback(data.text)
                 except ParseError as error:
@@ -79,4 +76,4 @@ class _Format:
         return data
 
 
-Format = _Format(default_parser='md')
+Format = _Format(default_parser='html')

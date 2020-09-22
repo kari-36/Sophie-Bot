@@ -182,14 +182,14 @@ class Markdown:
         return source[:start] + source[start:].replace(old, new, 1)
 
 
-def get_parse_mode(text: str, default_parser: str = 'md') -> Tuple[str, str]:
+def get_parse_mode(text: str, default_parser: str = 'html') -> Tuple[str, str]:
     if not text:
         return text, default_parser
 
     match = re.search(r'%PARSEMODE_(?P<parse_mode>\w+)', text)
     if match is not None:
         if (mode := match.group('parse_mode')) is not None:
-            if mode.lower() in {'md', 'html', 'none'}:
+            if mode.lower() in {'md', 'html', 'none', 'markdown'}:
                 text = re.sub(r'%PARSEMODE_(?P<parse_mode>\w+)\s?', '', text, 1)
                 return text, mode.lower()
     return text, default_parser
