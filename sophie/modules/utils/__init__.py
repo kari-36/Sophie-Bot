@@ -1,4 +1,5 @@
 # Copyright (C) 2018 - 2020 MrYacha.
+# Copyright (C) 2020 Jeepeo
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -14,14 +15,3 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # This file is part of Sophie.
-
-from abc import ABC
-
-from aiogram.dispatcher.handler import MessageHandler
-
-
-class DataMessageHandler(MessageHandler, ABC):
-
-    @property
-    def data(self):
-        return self.data
