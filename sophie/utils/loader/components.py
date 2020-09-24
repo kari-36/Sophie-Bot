@@ -16,7 +16,6 @@
 #
 # This file is part of Sophie.
 
-import os
 from typing import Union
 
 from pathlib import Path
@@ -28,16 +27,16 @@ from .package import Package
 def load_component(component_name: str) -> Union[Package, bool]:
     from . import LOADED_COMPONENTS
 
-    base_path = 'sophie/components/'
+    path = Path(f"sophie/components/{component_name}")
     # check if component exists
-    if not os.path.exists(base_path + component_name):
+    if not path.exists():
         return False
 
     log.debug(f"Loading component: {component_name}")
     component = Package(
         type='component',
         name=component_name,
-        path=Path(f"sophie/components/{component_name}")
+        path=path
     )
 
     LOADED_COMPONENTS[component_name] = component
