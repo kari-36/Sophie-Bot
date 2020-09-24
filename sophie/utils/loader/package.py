@@ -16,16 +16,22 @@
 #
 # This file is part of Sophie.
 
+from __future__ import annotations
+
 import inspect
 
 from importlib import import_module
 from pathlib import Path
-from typing import Any, Optional, Type, cast, Dict
+from typing import Any, ClassVar, Dict, List, Optional, TYPE_CHECKING, Tuple, Type, cast
 
 from sophie.utils.bases import Base, BaseModule
 from sophie.utils.config import cfg, real_config
 from sophie.utils.logging import log
+
 from .requirements import check_requirements
+
+if TYPE_CHECKING:
+    from aiogram import Router
 
 
 class Package:
@@ -64,11 +70,9 @@ class Package:
             self.__load_config()
 
         if hasattr(self.base, '__pre_init__'):
-            log.debug(f"Running __pre_init__ of {self.name} package...")
             self.__trigger_pre_init()
-            log.debug("...Done")
 
-        log.debug("...Done!")
+        log.debug(f"Successfully loaded package {self.name}")
 
     def __load_config(self) -> bool:
         log.debug(f"Loading configurations for {self.name} package")
@@ -110,23 +114,32 @@ class Package:
 
 
 class Module(Package):
+    routers: ClassVar[List[Tuple[Router, int]]] = []
 
-    def __init__(self, type: str, name: str, path: Path):  # noqa: A002
-        super().__init__(type, name, path)
-        if type == 'module':
-            self._load_module(cast(BaseModule, self.base))
+    def __init__(self, name: str, path: Path):
+        super().__init__('module', name, path)
+        self._load_module(self, cast(BaseModule, self.base))
 
-    def _load_module(self, module: BaseModule) -> None:
-        from sophie.services.aiogram import modules_router
+    @classmethod
+    def _load_module(cls, package: Package, module: BaseModule) -> None:
         # Load routers
         if module.router:
-
-            log.debug(f"Loading router(s) for {self.name} {self.type}...")
+            log.debug(f"Loading router(s) for {package.name} {package.type}...")
+            routers = module.router
             if not isinstance(module.router, list):
-                self.routers = [module.router]
-            self.routers = self.routers
+                routers = [module.router]
 
-            # Include routers
-            for router in self.routers:
-                modules_router.include_router(router)
-            log.debug("...Done")
+            for router in routers:
+                cls.routers.append((router, module.level))
+
+    @classmethod
+    def register_routers(cls) -> None:
+        from sophie.services.aiogram import modules_router
+
+        # sort the routers according to level
+        cls.routers.sort(key=lambda x: x[1])
+
+        for router, _ in cls.routers:
+            modules_router.include_router(router)
+
+        log.debug(f"Registered {len(cls.routers)} routers!")

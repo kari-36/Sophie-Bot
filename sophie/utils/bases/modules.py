@@ -30,3 +30,6 @@ if TYPE_CHECKING:
 class BaseModule(Base, ABC):
     router: Optional[Union[List[Router], Router]]
     """Registered router(s) for the module"""
+
+    level: Union[float, int] = float('-inf')
+    """Level of the module"""

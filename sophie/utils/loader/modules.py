@@ -31,12 +31,14 @@ def load_modules(to_load: List[str]) -> list:
     modules: list = []
     for module_name in to_load:
         module = Module(
-            type='module',
             name=module_name,
             path=Path(f"sophie/modules/{module_name}")
         )
         LOADED_MODULES[module_name] = module
         modules.append(module)
+
+    # registers all routers based on their levels
+    Module.register_routers()
 
     return modules
 
