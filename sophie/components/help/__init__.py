@@ -16,8 +16,22 @@
 #
 # This file is part of Sophie.
 
+from __future__ import annotations
+
+from typing import Any, Callable, Optional, Protocol, TYPE_CHECKING
+
 from sophie.utils.bases import BaseComponent
 from .config import __config__
+
+if TYPE_CHECKING:
+    from .interface import _ReplyModel
+
+    class GetHelpsType(Protocol):
+        async def __call__(self, locale_code: str, module: Optional[str] = None) -> _ReplyModel:
+            ...
+
+    include_help: Callable[[str], Callable[..., Any]]
+    get_helps: GetHelpsType
 
 
 class Help(BaseComponent):
@@ -27,3 +41,11 @@ class Help(BaseComponent):
     async def __before_serving__(cls) -> None:
         from .loader import load
         await load()
+
+    @classmethod
+    def __pre_init__(cls, module) -> None:
+        from .decorators import include_help
+        from .interface import get_helps
+
+        module.include_help = include_help
+        module.get_helps = get_helps
