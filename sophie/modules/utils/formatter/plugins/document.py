@@ -46,17 +46,11 @@ class Document(BaseFormatPlugin):
     async def validate(cls, message: Message, data: RawNoteModel) -> bool:
         file_id, file_type = cls.__get_fileinfo(message)
         if not (file_id and file_type):
-            # check document in reply message
-            if not message.reply_to_message:
-                return False
+            assert data.text is not None, 'invalid_document'
+            return False
 
-            file_id, file_type = cls.__get_fileinfo(message.reply_to_message)
-            if not (file_id and file_type):
-                assert data.text is not None, 'invalid_document'
-                return False
-
-            if data.text:
-                assert len(data.text) <= 1024, 'media_caption_too_long'
+        if data.text:
+            assert len(data.text) <= 1024, 'media_caption_too_long'
         data.__setattr__(
             'document', DocumentModel(file_id=file_id, file_type=file_type)
         )

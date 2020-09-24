@@ -139,7 +139,6 @@ class RawNoteModel(BaseModel):
         return await request(
             chat_id=message.chat.id,
             reply_to_message_id=reply_id,
-            parse_mode=bot.parse_mode,
             **kwargs
         )
 
