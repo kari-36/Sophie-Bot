@@ -20,7 +20,7 @@ from contextlib import suppress
 from typing import Dict
 
 try:
-    from sophie.components.help.decorators import include_help
+    from sophie.components.help import include_help
     from sophie.components.localization import GetString
     from sophie.components.localization.loader import LANGUAGES
 

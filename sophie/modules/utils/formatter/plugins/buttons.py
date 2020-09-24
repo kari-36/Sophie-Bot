@@ -29,6 +29,7 @@ from typing import Any, Awaitable, Callable, Dict, Literal, Match, Optional, TYP
 from aiogram.api.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pydantic import BaseModel, Extra
 
+from sophie.utils.logging import log
 from .bases import BaseFormatPlugin
 
 if TYPE_CHECKING:
@@ -73,9 +74,11 @@ class NoteButtons(BaseFormatPlugin):
             button_data.same_row = True
 
         if not hasattr(data, 'buttons'):
-            data.buttons = [button_data]  # type: ignore
+            data.__setattr__("buttons", [button_data])
+        elif isinstance(buttons := getattr(data, 'buttons', None), list):  # Impossible, but still
+            buttons.append(button_data)
         else:
-            data.buttons.append(button_data)  # type: ignore
+            log.warning(f"Got unexpected type of button object {buttons!r}")
 
         if data.text is not None:
             data.text = re.sub(re.escape(match.group(0)), '', data.text)
@@ -84,9 +87,10 @@ class NoteButtons(BaseFormatPlugin):
     async def compile_(
             cls, message: Message, data: RawNoteModel, payload: ParsedNoteModel, chat: Chat, user: Optional[User]
     ) -> Any:
-        buttons = []
+        buttons = InlineKeyboardMarkup(inline_keyboard=[])
         if btn_data := getattr(data, 'buttons', None):
             for button in btn_data:  # type: ButtonDataModel
+                # fetch compiler
                 compiler = BUTTONS[button.button_type]['compiler']
                 btn = InlineKeyboardButton(text=button.text)
                 await compiler(
@@ -94,8 +98,9 @@ class NoteButtons(BaseFormatPlugin):
                         compiler, message=message, data=button, payload=btn, chat=chat, user=user
                     )
                 )
-                buttons.append([btn])
-            payload.reply_markup = InlineKeyboardMarkup(inline_keyboard=buttons)
+                # add button, TODO
+                raise NotImplementedError
+            payload.reply_markup = buttons
 
     @classmethod
     async def decompile(

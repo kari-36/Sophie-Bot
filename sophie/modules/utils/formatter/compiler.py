@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import inspect
+import textwrap
 from typing import Any, Callable, List, Optional, TYPE_CHECKING, Union
 
 from aiogram.api.types import (
@@ -95,6 +96,12 @@ class RawNoteModel(BaseModel):
         if not obj.text:
             if self.document is None:
                 obj.text = fallback_text
+        else:
+            # Document captions should be less than 1024; unlikely to happen but still
+            if self.document and len(obj.text) > 1024:
+                obj.text = textwrap.shorten(obj.text, width=1010)
+            elif not self.document and len(obj.text) > 4096:
+                obj.text = textwrap.shorten(obj.text, width=4080)
         return True
 
     @classmethod
@@ -136,6 +143,7 @@ class RawNoteModel(BaseModel):
         else:
             kwargs = payload.dict(exclude={'text'})
 
+        # TODO: Error handling
         return await request(
             chat_id=message.chat.id,
             reply_to_message_id=reply_id,

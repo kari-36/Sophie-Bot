@@ -117,7 +117,7 @@ class _builtinVars:
         """represting first name of user"""
         if spec in {'reply'}:
             if (reply := self._message.reply_to_message) and reply.from_user:
-                return reply.from_user.first_name
+                return html.escape(reply.from_user.first_name, quote=False)
         user = self._get_user()
         if user:
             return html.escape(user.first_name, quote=False)
@@ -127,7 +127,7 @@ class _builtinVars:
         # last name of a user
         if spec in {'reply'}:
             if (reply := self._message.reply_to_message) and reply.from_user:
-                return reply.from_user.last_name or ''
+                return html.escape(reply.from_user.last_name or '', quote=False)
         user = self._get_user()
         if user and user.last_name:
             return html.escape(user.last_name, quote=False)

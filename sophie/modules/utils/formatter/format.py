@@ -20,7 +20,9 @@ from __future__ import annotations
 
 import html
 
-from typing import List, Literal, Optional, TYPE_CHECKING, Union
+from typing import Callable, List, Literal, Optional, TYPE_CHECKING, Union
+
+from sophie.components.localization import GetString
 
 from .parser import HTML, Markdown, ParseError
 from .validator import validate
@@ -65,11 +67,15 @@ class _Format:
 
         if self._text and data.text:
             if parser in ('html', 'md', 'markdown'):
-                callback = HTML.parse if parser == 'html' else Markdown.parse
+                callback: Callable[[str], str] = HTML.parse if parser == 'html' else Markdown.parse
                 try:
                     data.text = callback(data.text)
                 except ParseError as error:
-                    await self._message.answer(f"Unable to compile: {html.escape(error.text, False)}")
+                    await self._message.answer(
+                        (
+                            await GetString("compilation_error", chat_id=self._message.chat.id)
+                        ).format(error=html.escape(error.text, quote=False))
+                    )
                     return False
             else:
                 data.text = html.escape(data.text, quote=False)
