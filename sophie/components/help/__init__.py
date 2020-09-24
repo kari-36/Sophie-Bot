@@ -43,7 +43,7 @@ class Help(BaseComponent):
         await load()
 
     @classmethod
-    def __pre_init__(cls, module) -> None:
+    def __pre_init__(cls, module: Any) -> None:
         from .decorators import include_help
         from .interface import get_helps
 

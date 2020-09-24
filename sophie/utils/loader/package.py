@@ -22,7 +22,7 @@ import inspect
 
 from importlib import import_module
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, TYPE_CHECKING, Tuple, Type, cast
+from typing import Any, ClassVar, Dict, List, Optional, TYPE_CHECKING, Tuple, Type, Union, cast
 
 from sophie.utils.bases import Base, BaseModule
 from sophie.utils.config import cfg, real_config
@@ -114,7 +114,7 @@ class Package:
 
 
 class Module(Package):
-    routers: ClassVar[List[Tuple[Router, int]]] = []
+    routers: ClassVar[List[Tuple[Router, Union[int, float]]]] = []
 
     def __init__(self, name: str, path: Path):
         super().__init__('module', name, path)
@@ -125,9 +125,7 @@ class Module(Package):
         # Load routers
         if module.router:
             log.debug(f"Loading router(s) for {package.name} {package.type}...")
-            routers = module.router
-            if not isinstance(module.router, list):
-                routers = [module.router]
+            routers: List[Router] = [module.router] if not isinstance(module.router, list) else module.router
 
             for router in routers:
                 cls.routers.append((router, module.level))
