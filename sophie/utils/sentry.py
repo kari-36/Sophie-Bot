@@ -1,4 +1,5 @@
 # Copyright (C) 2018 - 2020 MrYacha.
+# Copyright (C) 2020 Jeepeo
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -15,10 +16,8 @@
 #
 # This file is part of Sophie.
 
-from sophie.services.aiogram import dp
+import sentry_sdk
 
 
-def __setup__() -> None:
-    from .sentry import __setup__ as SentrySetup
-
-    SentrySetup(dp)
+def initiate_sentry(key: str) -> None:
+    sentry_sdk.init(key)

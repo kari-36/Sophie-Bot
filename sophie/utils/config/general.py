@@ -18,7 +18,7 @@
 #
 # Contains general/Core config model
 
-from typing import List, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from pydantic import BaseModel, validator, Extra
 
 from .field import Field
@@ -40,6 +40,17 @@ class AdvancedConfig(BaseModel):  # Advanced settings
     uvloop: bool = Field(False, env="UVLOOP")
     migrator: bool = Field(True, env="MIGRATOR")
     log_file: bool = Field(True, env="LOG_FILE")
+
+    # sentry logging
+    sentry_dsn: Optional[str] = Field(None, env="SENTRY_DSN")
+
+    @validator("sentry_dsn")
+    def sentry(cls, key: Optional[str], values: Dict[str, Any]) -> Optional[str]:
+        if key and values['debug'] is False:
+            from ..sentry import initiate_sentry
+            initiate_sentry(key)
+            return key
+        return None
 
 
 class ModuleConfig(BaseModel):
