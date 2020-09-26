@@ -21,40 +21,19 @@ from __future__ import annotations
 import typing
 
 
-def parse_method(
-        *fields: str, last_fields: bool = False, pass_whole_text: bool = False, communicate: bool = False
-) -> typing.Callable[[typing.Callable[..., typing.Any]], classmethod]:
+def parse_method(*fields: str) -> typing.Callable[[typing.Callable[..., typing.Any]], classmethod]:
 
     """
     Decorator for assigning methods to field parsers
 
-    You can use the decorator as follows::
+    >>> @parse_method('SomeFieldNames')
+    >>> def something(cls, value):
+    >>>     pass
 
-        @parse_method("field1", "field2")
-        async def field_one_method(cls, message, text):
-            # yes! parse methods can be async
-            # text param returns the IndexField matched text
-            return text, {"I got field1", 1}
-
-    You could also communicate between fields, to receieve comm data, you should use ``communication=True`` param::
-
-        @parse_method("field3", communicate=True)
-        def field3_parse_method(cls, message, text, communication):
-            # communication param contains "{"I got field1": 1}
-            return text
-
-    You can also view the value of last fields::
-
-        @parse_method("field4", last_fields=True, communication=True)
-        def field4_parse_method(cls, message, text, last_fields, comm):
-            # last_fields :> {"field1": ..., "field2": ...}
-            return text
-
-
+    You can access multiple other properties by using args as shown below
+    >>> def something (cls, text, values: dict, field: '_ArgField', match: typing.Optional[typing.Match]): ...
+    >>> # contains values of field before---^,   ^--- Field data      ^--- Optional match object
     :param fields:  fields which parser made for
-    :param last_fields: If True, parser will get all parsed fields (yet)
-    :param pass_whole_text: whole text instead of Index matched field
-    :param communicate:  if parser need to recieve additional data from last field
     """
 
     def decorator(func: typing.Callable[..., typing.Any]) -> classmethod:
