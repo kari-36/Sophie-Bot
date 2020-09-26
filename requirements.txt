@@ -44,3 +44,4 @@ PyYAML
 coloredlogs
 loguru
 magic_filter
+sentry-sdk
