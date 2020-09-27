@@ -24,7 +24,10 @@ from abc import ABC
 
 from aiogram.dispatcher import handler
 
-from sophie.components.localization.strings import Strings
+try:
+    from sophie.components.localization.strings import Strings
+except ImportError:
+    Strings = None  # type: ignore
 
 
 class MessageHandler(handler.MessageHandler, ABC):
@@ -48,9 +51,10 @@ class MessageHandler(handler.MessageHandler, ABC):
         """
         return self.data.get("args")
 
-    @property
-    def strings(self) -> Strings:
-        """
-        return localized strings of the module
-        """
-        return typing.cast(Strings, self.data.get("strings"))
+    if Strings:
+        @property
+        def strings(self) -> Strings:
+            """
+            return localized strings of the module
+            """
+            return typing.cast(Strings, self.data.get("strings"))
