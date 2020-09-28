@@ -47,11 +47,10 @@ class cached:
 
         value = await cache.get(key)
         if value is not None:
-            return value
+            return value if value is not _NotSet else value.real_value
 
-        # TODO: ability to cache NoneType returns
         result = await self.func(*args, **kwargs)
-        asyncio.ensure_future(cache.set(key, result, ttl=self.ttl))
+        asyncio.ensure_future(cache.set(key, result if result is not None else _NotSet, ttl=self.ttl))
         log.debug(f'Cached: writing new data for key - {key}')
         return result
 
@@ -83,3 +82,10 @@ class cached:
         if new_value:
             return await cache.set(key, new_value, ttl=self.ttl)
         return await cache.delete(key)
+
+
+class _NotSet:
+    real_value = None
+
+    def __repr__(self):
+        return 'NotSet'
