@@ -87,5 +87,5 @@ class cached:
 class _NotSet:
     real_value = None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'NotSet'
