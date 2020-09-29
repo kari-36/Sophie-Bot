@@ -19,17 +19,17 @@
 from __future__ import annotations
 
 import html
-
-from typing import Callable, List, Literal, Optional, TYPE_CHECKING, Union
+import re
+from typing import Callable, List, Literal, Optional, TYPE_CHECKING, Tuple, Union
 
 from sophie.components.localization import GetString
 
-from .parser import HTML, Markdown, ParseError
-from .validator import validate
 from .compiler import RawNoteModel
+from .parser import HTML, Markdown, ParseError, UnpackEntitiesHTML, UnpackEntitiesMD
+from .validator import validate
 
 if TYPE_CHECKING:
-    from aiogram.api.types import Message
+    from aiogram.api.types import Message, MessageEntity
 
 
 class _Format:
@@ -41,13 +41,13 @@ class _Format:
             self,
             message: Message,
             text: Optional[str] = None,
-            parse_mode: Optional[str] = None,
+            entities: Optional[List[MessageEntity]] = None,
             excluded_plugins: Optional[List[str]] = None,
             included_plugins: Optional[List[str]] = None
     ) -> Union[RawNoteModel, Literal[False]]:
         self._message = message
         self._text = text  # should pass text if. and enitities must unparsed in HTML
-        self.parse_mode = parse_mode
+        self.entities = entities
 
         if excluded_plugins and included_plugins:
             raise ValueError(
@@ -59,7 +59,7 @@ class _Format:
         return await self.parse()
 
     async def parse(self) -> Union[RawNoteModel, Literal[False]]:
-        parser = self.parse_mode or self._default_parser
+        parser = self.get_parse_mode
         data = RawNoteModel(text=self._text)
 
         if not await validate(self._message, data, self.excluded_plugins, self.included_plugins):
@@ -67,9 +67,9 @@ class _Format:
 
         if self._text and data.text:
             if parser in ('html', 'md', 'markdown'):
-                callback: Callable[[str], str] = HTML.parse if parser == 'html' else Markdown.parse
+                callback, entities = self.get_parser
                 try:
-                    data.text = callback(data.text)
+                    data.text = callback(uh := entities.unparse(data.text, self.entities))
                 except ParseError as error:
                     await self._message.answer(
                         (
@@ -80,6 +80,26 @@ class _Format:
             else:
                 data.text = html.escape(data.text, quote=False)
         return data
+
+    @property
+    def get_parse_mode(self) -> str:
+        if not self._text:
+            return self._default_parser
+
+        match = re.search(r'%PARSEMODE_(?P<parse_mode>\w+)', self._text)
+        if match is not None:
+            if (mode := match.group('parse_mode')) is not None:
+                if mode.lower() in {'md', 'html', 'none', 'markdown'}:
+                    self._text = re.sub(r'%PARSEMODE_(?P<parse_mode>\w+)\s?', '', self._text, 1)  # noqa
+                    return mode.lower()
+        return self._default_parser
+
+    @property
+    def get_parser(self) -> Tuple[Callable[[str], str], Union[UnpackEntitiesMD, UnpackEntitiesHTML]]:
+        parser = self.get_parse_mode
+        if parser == 'html':
+            return HTML.parse, UnpackEntitiesHTML()
+        return Markdown.parse, UnpackEntitiesMD()
 
 
 Format = _Format(default_parser='html')

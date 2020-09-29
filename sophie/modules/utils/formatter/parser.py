@@ -16,10 +16,13 @@
 #
 # This file is part of Sophie.
 
+from __future__ import annotations
+
 import html
 import re
+
 from html.parser import HTMLParser
-from typing import Any, List, Tuple, Optional
+from typing import Any, List, Optional, Tuple
 
 from aiogram.utils.text_decorations import HtmlDecoration, MarkdownDecoration
 
@@ -180,19 +183,6 @@ class Markdown:
     @staticmethod
     def replace_once(source: str, old: str, new: str, start: int) -> str:
         return source[:start] + source[start:].replace(old, new, 1)
-
-
-def get_parse_mode(text: str, default_parser: str = 'html') -> Tuple[str, str]:
-    if not text:
-        return text, default_parser
-
-    match = re.search(r'%PARSEMODE_(?P<parse_mode>\w+)', text)
-    if match is not None:
-        if (mode := match.group('parse_mode')) is not None:
-            if mode.lower() in {'md', 'html', 'none', 'markdown'}:
-                text = re.sub(r'%PARSEMODE_(?P<parse_mode>\w+)\s?', '', text, 1)
-                return text, mode.lower()
-    return text, default_parser
 
 
 class UnpackEntitiesHTML(HtmlDecoration):
