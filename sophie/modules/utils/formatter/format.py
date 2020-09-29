@@ -69,7 +69,7 @@ class _Format:
             if parser in ('html', 'md', 'markdown'):
                 callback, entities = self.get_parser
                 try:
-                    data.text = callback(uh := entities.unparse(data.text, self.entities))
+                    data.text = callback(entities.unparse(data.text, self.entities))
                 except ParseError as error:
                     await self._message.answer(
                         (
