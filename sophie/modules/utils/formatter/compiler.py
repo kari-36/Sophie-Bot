@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import html
 import inspect
 import textwrap
 from typing import Any, Callable, List, Optional, TYPE_CHECKING, Union
@@ -74,7 +75,7 @@ class RawNoteModel(BaseModel):
 
         payload = ParsedNoteModel(text="")
         if self.text is not None:
-            payload.text = self.text
+            payload.text = html.escape(html.unescape(self.text), quote=False)
 
         for plugin in get_all_plugins(included=self.plugins):
             kwargs = self._generate_kwargs(
