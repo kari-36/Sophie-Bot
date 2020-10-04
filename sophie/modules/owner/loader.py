@@ -22,17 +22,18 @@ from sophie.utils.logging import log
 
 if TYPE_CHECKING:
     from aiogram import Router
+    from sophie.utils.loader.package import Package
 
 
 async def __setup__(router: Router) -> Any:
-    from sophie.utils.loader import LOADED_MODULES
+    from sophie.utils.loader import LOADED_MODULES, LOADED_COMPONENTS
 
     log.debug('Loading owners functions...')
 
-    for module in LOADED_MODULES.values():
-        if hasattr(module.p_object, 'OwnersFunctions'):
+    for module in [*LOADED_MODULES.values(), *LOADED_COMPONENTS.values()]:  # type: Package
+        if hasattr(module.p_object, 'OwnerFunctions'):
             log.debug(f"Found owners function for {module.name} module")
-            class_object = module.p_object.OwnersFunctions
+            class_object = module.p_object.OwnerFunctions
 
             # Check if function needs setup operation
             if hasattr(class_object, '__setup__'):

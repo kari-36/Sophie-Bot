@@ -19,7 +19,7 @@ from typing import Any
 from aiogram import Router
 
 from sophie.utils.bases import BaseModule
-from .handlers.owners_functions import OwnersFunctions
+from .handlers.owners_functions import OwnerFunctions
 
 router = Router()
 
@@ -39,5 +39,5 @@ class Module(BaseModule):
 
 __all__ = [
     "router",
-    "OwnersFunctions"
+    "OwnerFunctions"
 ]

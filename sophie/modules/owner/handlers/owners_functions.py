@@ -27,7 +27,7 @@ if typing.TYPE_CHECKING:
     from aiogram.api.types import Message
 
 
-class OwnersFunctions:
+class OwnerFunctions:
     async def __setup__(self, _: Router) -> None:
         self.term.only_owner = True  # type: ignore  # https://github.com/python/mypy/issues/2087
 
