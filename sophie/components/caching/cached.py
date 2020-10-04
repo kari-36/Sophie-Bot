@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
-from typing import Any, Callable, Optional, Union, cast
+from typing import Any, Callable, Literal, Optional, Union, cast
 
 from sophie.utils.logging import log
 from . import cache
@@ -33,7 +33,7 @@ class cached:
         self.key = key
         self.no_self = no_self
 
-    def __call__(self, *args: Any, **kwargs: Any) -> Callable[..., Any]:
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
         if not hasattr(self, 'func'):
             self.func: Callable[..., Any] = args[0]
             # wrap
@@ -43,7 +43,7 @@ class cached:
         return cast(Callable[..., Any], self._set(*args, **kwargs))
 
     async def _set(self, *args: dict, **kwargs: dict) -> Any:
-        key = self.__build_key(*args, **kwargs)
+        key = self.__build_key(args, kwargs)
 
         value = await cache.get(key)
         if value is not None:
@@ -54,14 +54,15 @@ class cached:
         log.debug(f'Cached: writing new data for key - {key}')
         return result
 
-    def __build_key(self, *args: dict, **kwargs: dict) -> str:
-        ordered_kwargs = sorted(kwargs.items())
+    def __build_key(self, args: Optional[tuple] = None, kwargs: Optional[dict] = None) -> str:
 
         new_key = self.key if self.key else (self.func.__module__ or "") + self.func.__name__
-        new_key += str(args[1:] if self.no_self else args)
+        if args is not None and kwargs is not None:
+            ordered_kwargs = sorted(kwargs.items())
+            new_key += str(args[1:] if self.no_self else args)
 
-        if ordered_kwargs:
-            new_key += str(ordered_kwargs)
+            if ordered_kwargs:
+                new_key += str(ordered_kwargs)
 
         return new_key
 
@@ -78,10 +79,25 @@ class cached:
         :param new_value: new/ updated value to be set [optional]
         """
 
-        key = self.__build_key(*args, **kwargs)
+        key = self.__build_key(args, kwargs)
         if new_value:
             return await cache.set(key, new_value, ttl=self.ttl)
         return await cache.delete(key)
+
+    @property
+    async def reset_all(self) -> Union[int, Literal[False]]:
+        """
+        This feature is available only for redis mode (dw no errors would be raised)
+        :return: Number of keys deleted on success, else False
+        """
+        key = self.__build_key() + "*"
+        conn = await cache.acquire_conn()
+        try:
+            keys = await conn.keys(cache.build_key(key=key, namespace=cache.namespace))
+            # delete keys without blocking redis
+            return await conn.unlink(*keys)
+        except AttributeError:
+            return False
 
 
 class _NotSet:
