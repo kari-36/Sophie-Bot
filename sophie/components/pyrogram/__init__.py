@@ -19,7 +19,10 @@
 import typing
 
 from sophie.utils.bases import BaseComponent
+from sophie.utils.logging import log
+
 from .config import __config__
+from .owner_functions import OwnerFunctions
 
 if typing.TYPE_CHECKING:
     from pyrogram import Client
@@ -34,3 +37,9 @@ class Component(BaseComponent):
         from .pyrogram import pbot
 
         module.pbot = pbot
+
+    async def __setup__(*args: typing.Any, **kwargs: typing.Any) -> None:
+        from .pyrogram import pbot
+
+        log.debug('Starting 🔥Pyrogram...')
+        await pbot.start()

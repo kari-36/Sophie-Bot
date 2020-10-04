@@ -21,15 +21,12 @@ import logging
 from pyrogram import Client
 
 from sophie.utils.config import cfg
-from sophie.utils.logging import log
 
 TOKEN = cfg.general.token
 session_name = TOKEN.split(':')[0]
 
 API_ID = cfg.component.pyrogram.app_id
 API_HASH = cfg.component.pyrogram.app_hash
-
-log.debug('Starting 🔥Pyrogram...')
 
 pbot = Client(
     session_name,
