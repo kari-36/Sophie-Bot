@@ -18,14 +18,15 @@
 
 from __future__ import annotations
 
-from typing import Optional, TypeVar, Any, Dict, cast, Callable
+import functools
+from typing import Any, Callable, Dict, Optional, TypeVar, Union, cast
 
-from aiogram.dispatcher.handler import MessageHandler
+from aiogram.api.types import CallbackQuery, Message
 from babel.core import Locale
 
 from .lanuages import get_babel, get_language_emoji
-from .locale import get_chat_locale
 from .loader import GLOBAL_TRANSLATIONS
+from .locale import get_chat_locale
 
 
 class GetStrings:
@@ -139,12 +140,20 @@ T = TypeVar("T", bound=Callable[..., Any])
 
 
 def get_strings_dec(func: T) -> T:
-    async def decorated(event: MessageHandler, *args: Any, **kwargs: Any) -> Any:
+    @functools.wraps(func)
+    async def decorated(event: Union[Message, CallbackQuery], *args: Any, **kwargs: Any) -> Any:
         module_name = func.__module__.split('.')[2]
 
-        chat_id = event.chat.id
-        strings = Strings(await get_chat_locale(chat_id), module_name)
+        if isinstance(event, Message):
+            chat_id = event.chat.id
+        elif isinstance(event, CallbackQuery):
+            if event.message is None:
+                raise ValueError("Cannot get chat info from CallbackQuery!")
+            chat_id = event.message.chat.id
+        else:
+            raise ValueError(f"Unsupported event type recieved {type(event)}!")
 
+        strings = Strings(await get_chat_locale(chat_id), module_name)
         return await func(event, *args, strings=strings, **kwargs)
 
     return cast(T, decorated)
