@@ -18,9 +18,6 @@
 # Basic requrements
 # Per-modules/conponents requrements located inside them
 
-# cython for compiling pydantic
-cython
-
 # General
 git+https://github.com/aiogram/aiogram@dev-3.x
 
@@ -34,8 +31,6 @@ pydantic
 
 # Optional deps to make bot faster
 aiohttp[speedups]
-cryptg
-cryptography
 uvloop
 
 # Other
