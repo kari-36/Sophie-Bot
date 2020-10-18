@@ -29,6 +29,9 @@ git+https://gitlab.com/SophieBot/Motor-ODM.git
 
 pydantic
 
+# JSON
+orjson
+
 # Optional deps to make bot faster
 aiohttp[speedups]
 uvloop

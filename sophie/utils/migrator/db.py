@@ -48,13 +48,6 @@ class MigrationDB(Document):
             IndexModel([("chat_id", ASCENDING)], name="chat_id", unique=True)
         ]
 
-    class Config:
-        # overide motor-ODM config to use "enum" values when saving
-        validate_all = True
-        validate_assignment = True
-        allow_population_by_field_name = True
-        use_enum_values = True
-
 
 async def get_current_version(package_name: str, package_type: str) -> Optional[int]:
     data = await MigrationDB.find_one({"name": package_name, "type": package_type})

@@ -15,27 +15,25 @@
 
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+from typing import Any
 
-from __future__ import annotations
-
-import typing
-
-from motor.motor_asyncio import AsyncIOMotorClient
-
-from sophie.utils.config import cfg
-from .document import Document
-
-if typing.TYPE_CHECKING:
-    from asyncio import AbstractEventLoop
-    from motor.core import AgnosticDatabase
+import motor_odm
+import orjson
 
 
-def __init_motor__(loop: AbstractEventLoop) -> AgnosticDatabase:
-    motor = AsyncIOMotorClient(cfg.mongo.url, io_loop=loop)
-    mongo = motor[cfg.mongo.namespace]
-
-    Document.use(mongo)
-    return mongo
+def _orjson_dumps(value: Any, *, default: Any) -> str:
+    return orjson.dumps(value, default=default).decode()
 
 
-__all__ = ["Document", "__init_motor__"]
+class Document(motor_odm.Document, abstract=True):  # type: ignore
+
+    class Config(motor_odm.Document.Config):
+        # uses orjson as a replacement for `json`, can be used for importing/exporting
+        json_loads = orjson.loads
+        json_dumps = _orjson_dumps
+
+        # use enum's value instead of ref
+        use_enum_values = True
+
+
+__all__ = ('Document',)
