@@ -21,7 +21,7 @@ from __future__ import annotations
 import inspect
 
 from importlib import import_module
-from pathlib import Path
+from pathlib import Path, PosixPath, WindowsPath
 from typing import Any, ClassVar, Dict, List, Optional, TYPE_CHECKING, Tuple, Type, Union, cast
 
 from sophie.utils.bases import Base, BaseModule
@@ -40,7 +40,7 @@ class Package:
         self.type = type
         self.name = name
         self.path = path
-        self.python_path = str(self.path).replace('/', '.')
+        self.python_path = self._get_py_path
 
         # vars
         self.data: Dict[Any, Any] = {}
@@ -73,6 +73,15 @@ class Package:
             self.__trigger_pre_init()
 
         log.debug(f"Successfully loaded package {self.name}")
+
+    @property
+    def _get_py_path(self) -> str:
+        if isinstance(self.path, WindowsPath):
+            return str(self.path).replace('\\', '.')
+        elif isinstance(self.path, PosixPath):
+            return str(self.path).replace('/', '.')
+        else:
+            return str(self.path)
 
     def __load_config(self) -> bool:
         log.debug(f"Loading configurations for {self.name} package")
