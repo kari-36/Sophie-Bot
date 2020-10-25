@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import inspect
+from functools import cached_property
 
 from importlib import import_module
 from pathlib import Path, PosixPath, WindowsPath
@@ -40,7 +41,6 @@ class Package:
         self.type = type
         self.name = name
         self.path = path
-        self.python_path = self._get_py_path
 
         # vars
         self.data: Dict[Any, Any] = {}
@@ -59,7 +59,6 @@ class Package:
 
         log.debug(f"Importing {self.name} package...")
         self.p_object: Any = import_module(self.python_path)  # contains the module
-        self.base = self.__get_member()  # contains base class
 
         version_file = self.path / 'version.txt'
         if version_file.exists():
@@ -74,8 +73,8 @@ class Package:
 
         log.debug(f"Successfully loaded package {self.name}")
 
-    @property
-    def _get_py_path(self) -> str:
+    @cached_property
+    def python_path(self) -> str:
         if isinstance(self.path, WindowsPath):
             return str(self.path).replace('\\', '.')
         elif isinstance(self.path, PosixPath):
@@ -102,11 +101,11 @@ class Package:
         self.base.__pre_init__(self.p_object)
         log.debug("...Done")
 
-    def __get_member(self) -> Type[Base]:
+    @cached_property
+    def base(self) -> Type[Base]:
         for cls in inspect.getmembers(self.p_object, self.__istarget):
             return cls[1]
-        else:
-            raise RuntimeError(f"{self.type} {self.name} should implement base!")
+        raise RuntimeError(f"{self.type} {self.name} should implement base!")
 
     @staticmethod
     def __istarget(member: Any) -> bool:
