@@ -25,25 +25,31 @@ from sophie.utils.config import cfg
 
 from sophie.utils.loader import load_all
 
-if cfg.advanced.debug:
-    log.setLevel(DEBUG)
-    log.warning("! Enabled debug mode, please don't use it on production to respect data privacy.")
-
 loop = asyncio.get_event_loop()
 
 
-log.debug("Loading database...")
-init_mongo(loop)
-log.debug("...Done")
+def initialise(loop_: asyncio.AbstractEventLoop) -> None:
+    if cfg.advanced.debug:
+        log.setLevel(DEBUG)
+        log.warning("! Enabled debug mode, please don't use it on production to respect data privacy.")
 
-load_all(loop)
+    log.debug("Initalising database...")
+    init_mongo(loop_)
+    log.debug("...Done")
 
-if cfg.advanced.migrator:
-    from sophie.utils.migrator.migrator import __setup__ as migrator
+    # load modules, components
+    load_all(loop_)
 
-    log.info("Checking database migration status...")
-    loop.run_until_complete(migrator())
-    log.info('...Done!')
+    if cfg.advanced.migrator:
+        from sophie.utils.migrator import migrator
 
-log.info('Running the bot...')
-loop.run_until_complete(dp.start_polling(bot))
+        log.debug("Checking database migration status...")
+        loop_.run_until_complete(migrator())
+        log.debug("...Done")
+
+    log.info("Running the bot...")
+    loop_.run_until_complete(dp.start_polling(bot))
+
+
+if __name__ == "__main__":
+    initialise(loop)
