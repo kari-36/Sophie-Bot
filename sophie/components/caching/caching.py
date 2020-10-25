@@ -89,7 +89,7 @@ def __setup__() -> BaseCache:
     )
 
     try:
-        asyncio.ensure_future(cache.set('foo', 'bar'))
+        asyncio.get_event_loop().run_until_complete(cache.set('foo', 'bar'))
     except ConnectionRefusedError:
         log.critical("Can't connect to the cache database! Exiting...")
         exit(2)
