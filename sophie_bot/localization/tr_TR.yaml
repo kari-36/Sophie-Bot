@@ -136,10 +136,6 @@ STRINGS:
     conn_chat_id: "Geçerli bağlanmış olan sohbet kimliği: <code>{id}</code>"
     help_btn: "Yardım için tıkla!"
     help_txt: "Yardım için aşağıdaki düğmeye tıklayın!"
-    paste_success_extra: "<b>Başarıyla yapıştırıldı!</b>\nKısaltılmış link: {}\nOrijinal doglin linki: {}"
-    paste_success: "<b>Başarıyla yapıştırıldı!</b>\nDogbin linki: {}"
-    paste_fail: "Dogbin'e ulaşılamadı!"
-    paste_no_text: "Yapıştırmak için bir metin girmeniz gerekiyor!"
     delmsg_filter_title: 'Mesajı sil'
     send_text: Lütfen cevap mesajını gönderin!
     replymsg_filter_title: 'Mesaja cevap verin'
@@ -152,6 +148,7 @@ STRINGS:
     demote_not_admin: "Bu kullanıcı yönetici değil."
     demote_failed: "Düşürme başarısız. Yetkim olmayabilir veya bu kişi başka bir kişi tarafından yönetici yapıldı"
     cant_get_user: "Kullanıcıyı alamadım! Eğer sakıncası varsa, lütfen mesajına cevap verin ve tekrar deneyin."
+    cant_promote_yourself: "Kendini terfi edemezsin."
     emoji_not_allowed: "Üzgünüm, ama yönetici rollerinde emoji olamaz 😞"
   pm_menu:
     start_hi_group: 'Selam! Benim adım Sophie'
@@ -260,6 +257,7 @@ STRINGS:
       <b>Devre dışı bırakılan günlük kaydı</b> #GünlükKaydıDevreDışı
       <b>Federasyon:</b> {fed_name} (<code>{fed_id}</code>)
     #/fchatlist
+    no_chats: "Bu <b> {name} </b> Federasyonuna katılan sohbet yok"
     chats_in_fed: "<b>Sohbet {name} Örgüt'üne bağlandı:</b>\n"
     too_large: "Çıktı çok büyük, dosya olarak gönderiliyor"
     #/finfo
@@ -279,9 +277,13 @@ STRINGS:
     fban_self: "Bu güzel bir şov!"
     fban_creator: "Federasyon sahibini nasıl yasaklayabilirim?! Komik olacağını sanmıyorum."
     fban_fed_admin: "Bir federasyon yöneticisini kendi federasyonundan yasaklayamam!"
+    update_fban: "Bu kullanıcı daha önce yasaklandığı için nedenini güncelliyorum <code>{reason}</code>"
     already_fbanned: "{user} bu federasyonda zaten yasaklanmıştı."
     fbanned_header: "<b>Yeni FedBan</b>\n"
-    fban_info: '| #ChatLeaved <b>Federasyon:</b>{fed}<b>Federasyon yöneticisi:</b>{fadmin}<b>Kullanıcı:</b>{user}(<code>{user_id}</code>)'
+    fban_info: |
+      <b> Federasyon: </b> {fed}
+       <b> Fed yöneticisi: </b> {fadmin}
+       <b> Kullanıcı: </b> {user} (<code> {user_id} </code>)
     fbanned_reason: "<b>Nedeni:</b> <code>{reason}</code>"
     fbanned_process: "<b>Durum:</b> <code>{num}</code> adet federasyon sohbetlerinden yasaklanıyor..."
     fbanned_done: "<b>Durum:</b> Bitti! <code>{num}</code> adet federasyon sohbetlerinden yasaklandı!"
@@ -341,6 +343,7 @@ STRINGS:
     big_file_json: |
       Şu anda json dosyaları {num} Megabyte ile sınırlıdır!
       Daha büyük dosyaları içe aktarmak istiyorsanız bir csv biçimi kullanın.
+    invalid_file: "Dosya geçersiz"
     wrong_file_ext: "Hatalı dosya biçimi! Şu anda destek verilen dosya türleri: json, csv"
     importing_process: <b>Federasyon yasakları içe aktarılıyor...</b>
     import_done: Federasyon yasaklarının içe aktarılması tamamlandı! {num} yasak içe aktarıldı.
@@ -409,6 +412,9 @@ STRINGS:
     not_in_chat: "Sen artık bu sohbette değilsin, bağlantını keseceğim."
     u_should_be_admin: "{} grubunda yönetici olmalısın!"
     usage_only_in_groups: "Gruplarda kullanım sınırlandı!"
+    anon_admin_warn: |
+      Anonim olduğunuz sürece sohbetten bağlanamazsınız!
+      PM üzerinden bağlanmayı deneyin, yine de yönetici haklarına sahip olmayacaksınız.
   global:
     u_not_admin: Bunu yapmak için yönetici olmalısınız!
     #Rights
@@ -437,7 +443,7 @@ STRINGS:
     info_last: "\nSoyisim: {last_name}"
     info_username: "Kullanıcı adı: {username}"
     info_link: "\nKullanıcı bağlantısı: {user_link}"
-    info_saw: "Onu yaklaşık olarak <code>{num}</code> adet grupta gördüm"
+    info_saw: "\nOnları <code> {num} </code> gruplarda gördüm"
     info_fbanned: "\nBulunan örgütte yasaklı: "
     info_admeme: "\nKullanıcı bu sohbette yönetici."
     upd_cache: "Önbellek şimdi güncelleniyor..."
@@ -449,6 +455,7 @@ STRINGS:
     export_done: <b>{chat_name}</b> 'den dışa aktarma bitti!
     exports_locked: Lütfen dışa aktarmayı tekrar kullanabilmek için %s süre zarfında bekleyin!
     #Importing
+    invalid_file: "Dosya geçersiz"
     send_import_file: Lütfen bir içe aktarma dosyası gönderin!
     rpl_to_file: Lütfen bir dosyaya cevap verin!
     big_file: Yalnızca 50 MB'ın altındaki dosyaları içe aktarma desteklenir!
@@ -615,43 +622,3 @@ STRINGS:
     no_unlock_args: Kilidi açmam için bana birkaç argüman ver!
     not_locked: Kilidini açacağım bir şey yok.
     unlocked_successfully: '{chat} içinde {lock} kilidi başarıyla açıldı!'
-RANDOM_STRINGS:
-  RUNS:
-    - "Hayırrrrrrrrrr!.."
-    - "Ağlaycam"
-    - "Efendim, neden?"
-    - "Neden bunu yapıyorsun? Ağlıyorum."
-    - "Birisi gerçekten bu dizeleri benim için yazdı ;_;"
-    - "Alexa, play Despacito!"
-    - "Yapılacaklar: BU DİZEYİ YAZ."
-    - "Lütfen efendim :("
-    - "Bekle, ah, dur... sticker atamıyorum ;_;"
-    - "/runs"
-    - "Miyav! 😺"
-    - "/cat komutunu dene"
-    - "Tek dostum Rose"
-    - "Tek dostum Yana"
-    - "Sana yeni şakalar göndereceğimi düşünüyorsan - yanılıyorsun, yapmayacağım!"
-    - "NaytSeYd 1 NuMaRA"
-    - "OwO"
-    - "?_?"
-    - "Herhangi bir yarış var mı?"
-    - "Erişim reddedildi!!"
-    - "Tamam kaçıyorsun ve ne kadar süre yapabileceğini görüyorum.."
-    - "Bu çok epik"
-    - "Bu daha da epik!!"
-    - "Ben çok fakirim... :("
-    - "Selamlar"
-    - "Sen bir sihirb- Oh. Bekle. Sen Harry değilsin, devam et."
-    - "Sevimlisin"
-    - ">~<"
-    - "@admins lütfen <code>/disable /runs</code>"
-    - "Spam spam spam spam spam"
-    - "Beyler çeviri için o kadar uğraştık bi like atarsınız artık"
-    - "Belki şans sana güler."
-    - "Bunu yaptığına pişman olacaksın..."
-    - Ben makineyim
-    - Asla uyumam
-    - Gözlerimi açık tutuyorum
-    - Ben robotum
-    - Keşke bir şeyler hissedebilseydim
