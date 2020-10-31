@@ -17,10 +17,11 @@
 
 from __future__ import annotations
 
+import html
 import typing
 
+from kantex.html import Bold, Code, Item, KeyValueItem, Section, SubSection
 from sophie.modules.utils.term import term
-from sophie.modules.utils.text import FormatListText
 
 if typing.TYPE_CHECKING:
     from aiogram import Router
@@ -36,41 +37,62 @@ class OwnerFunctions:
         from sophie.version import version
         from sophie.utils.loader import LOADED_MODULES
 
-        text_list = FormatListText({
-            'General': {
-                'Version': version
-            }
-        }, title='Stats')
+        text_list = Section(
+            "Stats", SubSection(
+                "General", KeyValueItem(
+                    Bold("version"), version
+                )
+            )
+        )
 
         for module in LOADED_MODULES.values():
             if 'stats' in module.data:
-                text_list = module.data['stats'](text_list)
-
-        await message.reply(text_list.text)
+                text_list.append(module.data['stats']())
+        await message.reply(str(text_list))
 
     @staticmethod
     async def modules(message: Message) -> typing.Any:
         from sophie.utils.loader import LOADED_MODULES
 
-        data = []
+        document = Section("Loader Modules")
         for module in LOADED_MODULES.values():
-            args = {'ver': module.version}
+            mod_doc = SubSection(
+                module.name, KeyValueItem(
+                    "version", module.version
+                )
+            )
 
             # Show database version. Reference to /sophie/utils/migrator.py
             if 'current_db_version' in module.data:
-                args['db'] = module.p_object.current_db_version
+                mod_doc.append(KeyValueItem(
+                    "database", module.data['current_db_version']
+                ))
 
-            data.append((module.name, args))
+            document.append(mod_doc)
 
         # Convert list to tuple, to make FormatListText understand this as typed list
-        await message.reply(FormatListText(tuple(data), title='Loaded modules').text)
+        await message.reply(str(document))
 
     @staticmethod
     async def term(message: Message, arg_raw: typing.Optional[str] = None) -> typing.Any:
         cmd = arg_raw
         if cmd is not None:
-            text_list = FormatListText({'$': '\n' + cmd}, title='Shell')
             stdout, stderr = await term(cmd)
-            text_list['stdout'] = '\n' + stdout
-            text_list['stderr'] = '\n' + stderr
-            await message.reply(text_list.text)
+            doc = Section(
+                "Shell", SubSection(
+                    "$", Code(
+                        html.escape(cmd, quote=False)
+                    )
+                ),
+                SubSection(
+                    "stdout", Item(
+                        stdout
+                    )
+                ),
+                SubSection(
+                    "stderr", Item(
+                        stderr
+                    )
+                )
+            )
+            await message.reply(str(doc))

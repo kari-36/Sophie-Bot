@@ -28,7 +28,7 @@ async def term(command: str) -> typing.Tuple[str, str]:
         stderr=asyncio.subprocess.PIPE
     )
     stdout, stderr = await process.communicate()
-    out = html.escape(str(stdout.decode().strip()))
-    err = html.escape(str(stderr.decode().strip()))
+    out = html.escape(str(stdout.decode().strip()), quote=False)
+    err = html.escape(str(stderr.decode().strip()), quote=False)
 
     return out, err

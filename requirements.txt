@@ -19,13 +19,13 @@
 # Per-modules/conponents requrements located inside them
 
 # General
-git+https://github.com/aiogram/aiogram@dev-3.x
+git+https://github.com/aiogram/aiogram@dev-3.x#egg=aiogram[fast]
 
 # DB
 pymongo
 motor
 aiocache
-git+https://gitlab.com/SophieBot/Motor-ODM.git
+git+https://gitlab.com/SophieBot/Motor-ODM.git#egg=motor-odm
 
 pydantic
 
@@ -34,7 +34,9 @@ orjson
 
 # Optional deps to make bot faster
 aiohttp[speedups]
-uvloop
+
+# formatting lib
+KanTeX
 
 # Other
 typing-extensions
