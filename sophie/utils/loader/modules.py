@@ -16,10 +16,10 @@
 #
 # This file is part of Sophie.
 
+from pathlib import Path
 from typing import List
 
-from pathlib import Path
-
+from sophie import constants
 from sophie.utils.config import cfg
 from sophie.utils.logging import log
 from .package import Module
@@ -55,6 +55,9 @@ def load_all_modules() -> list:
         to_load = ALL_MODULES
 
     to_load = [x for x in to_load if x not in dont_load]
+    if constants.TEST_MODE:
+        # by default, load "_tests" module when TEST_MODE is enabled
+        to_load.append("_tests")
     log.info("Modules to load: %s", str(to_load))
     load_modules(to_load)
 

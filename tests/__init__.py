@@ -15,31 +15,3 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # This file is part of Sophie.
-
-from __future__ import annotations
-
-import typing
-from ._internal import _ArgField
-
-
-class Undefined:
-    def __repr__(self) -> str:
-        return 'Undefined'
-
-
-def ArgField(
-        default: typing.Any = Undefined, *,
-        index: int = 0,
-        regex: str = r'[^\s]+',
-        optional: bool = False,
-) -> typing.Any:
-    """
-    :param default: fallback value
-    :param regex: Regex for field
-    :param index: index of where argument lies, defaults to 0
-    :param optional: True if ``None`` value is allowed
-    """
-
-    return _ArgField(
-        default, index, regex, optional
-    )

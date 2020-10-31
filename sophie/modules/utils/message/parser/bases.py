@@ -37,7 +37,7 @@ if typing.TYPE_CHECKING:
     from aiogram.dispatcher.filters import CommandObject
     from aiogram.api.types import Message
 
-WHITESPACE = r"\s"
+WHITESPACE = r"\s?"
 FIELD = r"(?P<{field}>{re}|)"
 OPTIONAL_FIELD = r"(?:\s?(?P<{field}>{re}|)?)"
 
@@ -139,8 +139,21 @@ class _ArgFilter(BaseFilter):
                 await message.reply(strings['no_args'])
                 return False
 
+            values: typing.Dict[str, typing.Any] = {}
+            for field, field_data in self.parser.__fields__.items():
+                try:
+                    if not (
+                        value := await self.trigger_parser(
+                            field, value=None, values=values, field=field_data, match=None
+                        )
+                    ):
+                        values[field] = field_data.default if type(field_data.default) is not Undefined else None
+                    else:
+                        values[field] = value
+                except InvalidArg:
+                    return False
             return {
-                "args": self.parser(**dict(zip(self.parser.__fields__.keys(), [None] * len(self.parser.__fields__))))
+                "args": self.parser(**values)
             }
 
         regex = self.parser.__regex__.match(args)
@@ -150,14 +163,19 @@ class _ArgFilter(BaseFilter):
             )
             return False
 
-        values: typing.Dict[str, typing.Any] = {}
+        values = {}
         for field, field_data in self.parser.__fields__.items():
             value = regex.group(field)
-            if not (value := await self.trigger_parser(field, value, values=values, field=field_data, match=regex)):
-                if not field_data.optional:
-                    await message.reply(strings['no_args:fields'].format(field=field))
-                value = field_data.default if field_data.default is not Undefined else None
-            values[field] = value
+            try:
+                if not (value := await self.trigger_parser(field, value, values=values, field=field_data, match=regex)):
+                    if (not field_data.optional) and (type(field_data.default) is not Undefined):
+                        await message.reply(strings['no_args:fields'].format(field=field))
+                        return False
+                    values[field] = field_data.default if field_data.default is not Undefined else None
+                else:
+                    values[field] = value
+            except InvalidArg:
+                return False
 
         return {
             "args": self.parser(**values)
@@ -176,7 +194,7 @@ class _ArgFilter(BaseFilter):
                 else:
                     value = parser(self.parser, value, **kwargs)
             except (TypeError, ValueError, AssertionError):
-                return False
+                raise InvalidArg
         return value
 
     def get_args(
@@ -189,3 +207,7 @@ class _ArgFilter(BaseFilter):
         elif message.text:
             return message.text
         return False
+
+
+class InvalidArg(Exception):
+    pass

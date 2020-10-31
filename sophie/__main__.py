@@ -15,9 +15,11 @@
 #
 # This file is part of Sophie.
 
+import sys
 import asyncio
 from logging import DEBUG
 
+from sophie import constants
 from sophie.services.aiogram import dp, bot
 from sophie.services.mongo import __setup__ as init_mongo
 from sophie.utils.logging import log
@@ -29,7 +31,14 @@ loop = asyncio.get_event_loop()
 
 
 def initialise(loop_: asyncio.AbstractEventLoop) -> None:
-    if cfg.advanced.debug:
+
+    if len(sys.argv) > 1:
+        if sys.argv[1] in {'testmode'}:
+            log.warning("! RUNNING ON TEST MODE")
+            constants.TEST_MODE = True
+
+    # test mode != debugging
+    if cfg.advanced.debug and not constants.TEST_MODE:
         log.setLevel(DEBUG)
         log.warning("! Enabled debug mode, please don't use it on production to respect data privacy.")
 

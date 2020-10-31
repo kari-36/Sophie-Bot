@@ -16,6 +16,8 @@
 # This file is part of Sophie.
 
 import os
+
+from sophie import constants
 from sophie.utils.logging import log
 
 
@@ -32,6 +34,9 @@ def list_all_modules() -> list:
             continue
 
         if directory == 'utils':
+            continue
+
+        if directory == "_tests" and not constants.TEST_MODE:
             continue
 
         if directory in all_modules:

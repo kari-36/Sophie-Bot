@@ -6,3 +6,9 @@ config/config.json
 __pycache__/
 .idea/
 *.session
+
+reports/
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+.coverage
