@@ -1,5 +1,5 @@
 # Copyright (C) 2018 - 2020 MrYacha.
-# Copyright (C) 2020 Jeepeo
+# Copyright (C) 2020 Jeepeo.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -16,30 +16,21 @@
 #
 # This file is part of Sophie.
 
-from __future__ import annotations
+from aiogram.api.types import Message
+from sophie.modules.utils.message import get_args, get_args_list
 
-import typing
-from ._internal import _ArgField
-
-
-class Undefined:
-    def __repr__(self) -> str:
-        return 'Undefined'
+from .. import test_router
 
 
-def ArgField(
-        default: typing.Any = Undefined, *,
-        index: int = 0,
-        regex: str = r'[^\s]+',
-        optional: bool = False,
-) -> typing.Any:
-    """
-    :param default: fallback value
-    :param regex: Regex for field
-    :param index: index of where argument lies, defaults to 0
-    :param optional: True if ``None`` value is allowed
-    """
+@test_router.message(commands=['test_get_args'])
+async def test_get_args(message: Message):
+    args = get_args(message)
+    if not args:
+        return await message.reply("None")
+    return await message.reply(args)
 
-    return _ArgField(
-        default, index, regex, optional
-    )
+
+@test_router.message(commands=['test_get_args_list'])
+async def test_get_args_list(message: Message):
+    args_list = get_args_list(message)
+    return await message.reply(str(args_list))

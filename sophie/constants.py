@@ -1,5 +1,5 @@
 # Copyright (C) 2018 - 2020 MrYacha.
-# Copyright (C) 2020 Jeepeo
+# Copyright (C) 2020 Jeepeo.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -16,30 +16,5 @@
 #
 # This file is part of Sophie.
 
-from __future__ import annotations
-
-import typing
-from ._internal import _ArgField
-
-
-class Undefined:
-    def __repr__(self) -> str:
-        return 'Undefined'
-
-
-def ArgField(
-        default: typing.Any = Undefined, *,
-        index: int = 0,
-        regex: str = r'[^\s]+',
-        optional: bool = False,
-) -> typing.Any:
-    """
-    :param default: fallback value
-    :param regex: Regex for field
-    :param index: index of where argument lies, defaults to 0
-    :param optional: True if ``None`` value is allowed
-    """
-
-    return _ArgField(
-        default, index, regex, optional
-    )
+TEST_MODE = False
+"""Will be true when sophie is running on testmode!"""
