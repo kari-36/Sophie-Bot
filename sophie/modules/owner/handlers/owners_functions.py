@@ -54,7 +54,7 @@ class OwnerFunctions:
     async def modules(message: Message) -> typing.Any:
         from sophie.utils.loader import LOADED_MODULES
 
-        document = Section("Loader Modules")
+        document = Section("Loaded Modules")
         for module in LOADED_MODULES.values():
             mod_doc = SubSection(
                 module.name, KeyValueItem(
