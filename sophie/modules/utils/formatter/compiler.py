@@ -49,9 +49,9 @@ class ParsedNoteModel(BaseModel):
 
 class RawNoteModel(BaseModel):
 
-    text: Optional[str] = None
-    plugins: Optional[List[str]] = None
-    document: Optional[DocumentModel] = None
+    text: Optional[str] = Field(max_length=4096)
+    plugins: Optional[List[str]]
+    document: Optional[DocumentModel]
 
     async def compile_(
             self, message: Message, chat: Optional[Chat] = None, user: Optional[User] = None
