@@ -106,7 +106,7 @@ class _HTMLToTelegramParser(HTMLParser):
             if url:
                 text = url
 
-        for tag, entity in self._building_entities.items():
+        for _, entity in self._building_entities.items():
             entity.length += len(text)
 
         self.text += text
