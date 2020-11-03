@@ -20,12 +20,12 @@ from __future__ import annotations
 
 import html
 import inspect
-import textwrap
 from typing import Any, Callable, List, Optional, TYPE_CHECKING, Union
 
 from aiogram.api.types import (
-    ForceReply, InlineKeyboardMarkup, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove
+    ForceReply, InlineKeyboardMarkup, Message, MessageEntity, ReplyKeyboardMarkup, ReplyKeyboardRemove
 )
+from aiogram.utils.text_decorations import html_decoration
 from pydantic import BaseModel, Extra, Field
 
 from sophie.services.aiogram import bot
@@ -50,6 +50,7 @@ class ParsedNoteModel(BaseModel):
 class RawNoteModel(BaseModel):
 
     text: Optional[str] = Field(max_length=4096)
+    entities: Optional[List[MessageEntity]]
     plugins: Optional[List[str]]
     document: Optional[DocumentModel]
 
@@ -93,17 +94,11 @@ class RawNoteModel(BaseModel):
             return request
         return bot.send_message
 
-    def _validate_text(self, obj: ParsedNoteModel, fallback_text: str) -> bool:
-        if not obj.text:
-            if self.document is None:
-                obj.text = fallback_text
+    def _build_text(self, obj: ParsedNoteModel, fallback_text: str) -> None:
+        if obj.text:
+            obj.text = html_decoration.unparse(obj.text, self.entities)
         else:
-            # Document captions should be less than 1024; unlikely to happen but still
-            if self.document and len(obj.text) > 1024:
-                obj.text = textwrap.shorten(obj.text, width=1010)
-            elif not self.document and len(obj.text) > 4096:
-                obj.text = textwrap.shorten(obj.text, width=4080)
-        return True
+            obj.text = fallback_text
 
     @classmethod
     def _generate_kwargs(cls, func: object, **kwargs: Any) -> dict:
@@ -133,7 +128,10 @@ class RawNoteModel(BaseModel):
             else:
                 payload = await self.compile_(message, chat, user)
 
-        self._validate_text(payload, fallback_text)
+        # build text
+        self._build_text(payload, fallback_text)
+
+        # build request
         request = self._build_request()
         params = inspect.getfullargspec(request).args
         if 'caption' in params:
@@ -145,6 +143,7 @@ class RawNoteModel(BaseModel):
             kwargs = payload.dict(exclude={'text'})
 
         # TODO: Error handling
+        # TODO: Entity-safe pagination when text exceeds 4096 or 1024
         return await request(
             chat_id=message.chat.id,
             reply_to_message_id=reply_id,
@@ -153,3 +152,4 @@ class RawNoteModel(BaseModel):
 
     class Config:
         extra = Extra.allow
+        validate_assignment = True

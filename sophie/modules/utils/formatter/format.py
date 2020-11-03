@@ -18,14 +18,11 @@
 
 from __future__ import annotations
 
-import html
 import re
-from typing import Callable, List, Literal, Optional, TYPE_CHECKING, Tuple, Union
-
-from sophie.components.localization import GetString
+from typing import List, Literal, Optional, TYPE_CHECKING, Union
 
 from .compiler import RawNoteModel
-from .parser import HTML, Markdown, ParseError, UnpackEntitiesHTML, UnpackEntitiesMD
+from .parser import parse_html, parse_markdown
 from .validator import validate
 
 if TYPE_CHECKING:
@@ -45,8 +42,8 @@ class _Format:
             excluded_plugins: Optional[List[str]] = None,
             included_plugins: Optional[List[str]] = None
     ) -> Union[RawNoteModel, Literal[False]]:
-        self._message = message
-        self._text = text  # should pass text if. and enitities must unparsed in HTML
+        self.message = message
+        self.text = text  # should pass text if. and enitities must unparsed in HTML
         self.entities = entities
 
         if excluded_plugins and included_plugins:
@@ -59,47 +56,33 @@ class _Format:
         return await self.parse()
 
     async def parse(self) -> Union[RawNoteModel, Literal[False]]:
-        parser = self.get_parse_mode
-        data = RawNoteModel(text=self._text)
+        parser = self.get_parse_mode()  # noqa
+        data = RawNoteModel(text=self.text)
 
-        if not await validate(self._message, data, self.excluded_plugins, self.included_plugins):
+        if not await validate(self.message, data, self.excluded_plugins, self.included_plugins):
             return False
 
-        if self._text and data.text:
-            if parser in ('html', 'md', 'markdown'):
-                callback, entities = self.get_parser
-                try:
-                    data.text = callback(entities.unparse(data.text, self.entities))
-                except ParseError as error:
-                    await self._message.answer(
-                        (
-                            await GetString("compilation_error", chat_id=self._message.chat.id)
-                        ).format(error=html.escape(error.text, quote=False))
-                    )
-                    return False
-            else:
-                data.text = html.escape(data.text, quote=False)
+        if self.text and data.text:
+            if parser in ('md', 'markdown'):
+                data.text, data.entities = parse_markdown(data.text)
+            elif parser in ('html',):
+                data.text, data.entities = parse_html(data.text)
+            # merge entities
+            if self.entities and data.entities is not None:
+                data.entities.extend(self.entities)
         return data
 
-    @property
     def get_parse_mode(self) -> str:
-        if not self._text:
+        if not self.text:
             return self._default_parser
 
-        match = re.search(r'%PARSEMODE_(?P<parse_mode>\w+)', self._text)
+        match = re.search(r'%PARSEMODE_(?P<parse_mode>\w+)', self.text)
         if match is not None:
             if (mode := match.group('parse_mode')) is not None:
                 if mode.lower() in {'md', 'html', 'none', 'markdown'}:
-                    self._text = re.sub(r'%PARSEMODE_(?P<parse_mode>\w+)\s?', '', self._text, 1)  # noqa
+                    self.text = re.sub(r'%PARSEMODE_(?P<parse_mode>\w+)\s?', '', self.text, 1)  # noqa
                     return mode.lower()
         return self._default_parser
-
-    @property
-    def get_parser(self) -> Tuple[Callable[[str], str], Union[UnpackEntitiesMD, UnpackEntitiesHTML]]:
-        parser = self.get_parse_mode
-        if parser == 'html':
-            return HTML.parse, UnpackEntitiesHTML()
-        return Markdown.parse, UnpackEntitiesMD()
 
 
 Format = _Format(default_parser='html')

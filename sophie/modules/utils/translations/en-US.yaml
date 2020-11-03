@@ -23,7 +23,6 @@ no_args:fields: "Not enough arghs! missing field '{field}'"
 # utils: formatting
 invalid_document: "The document specified is unsupported or invalid !"
 media_caption_too_long: "Caption is too long. should be less than 1024 characters!"
-compilation_error: "Unable to compile: {error}"
 
 formatting_help: |-
   <i>Decorate your text with MrPropper</i>
