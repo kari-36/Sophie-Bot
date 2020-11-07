@@ -30,26 +30,20 @@ except ImportError:
     Strings = None  # type: ignore
 
 
-class MessageHandler(handler.MessageHandler, ABC):
+_T = typing.TypeVar('_T')
+
+
+class MessageHandler(handler.MessageHandler, typing.Generic[_T], ABC):
 
     @property
-    def args(self) -> typing.Any:
-        """
-        Returns Parsed arguments
-
-        for type hints::
-
-            from __future__ import annotations
-
-            @parse_arguments(...)
-            class SomeHandler(MessageHandler):
-                args: Arguments
-
-                class Arguments(ArgumentParser):
-                    ...
-
-        """
-        return self.data.get("args")
+    def args(self) -> _T:
+        value = self.data.get("args", None)
+        if value is None:
+            raise ValueError(
+                f"Unable to fetch arg data in {self.__class__.__name__}"
+                "Makes sure you have passed Argument model to filter."
+            )
+        return typing.cast(_T, value)
 
     if Strings:
         @property
