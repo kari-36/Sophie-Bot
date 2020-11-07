@@ -96,7 +96,8 @@ class RawNoteModel(BaseModel):
 
     def _build_text(self, obj: ParsedNoteModel, fallback_text: str) -> None:
         if obj.text:
-            obj.text = html_decoration.unparse(obj.text, self.entities)
+            text = html_decoration.unparse(obj.text, self.entities)
+            obj.text = text
         else:
             obj.text = fallback_text
 

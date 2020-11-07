@@ -36,7 +36,7 @@ formatting_help: |-
 
   Recently Telegram added formatting options to their clients, thus we also support inbuilt formatting.
   We found out that it is the most feasible method to format texts.
-  Although we discourage you to use both inbuilt formatting and Sophie's formatting simultaneously
+  Creating nested formatting using both Sophie's and Telegram's formatting options can result in malformed formatting. We recommend you to use only one of them.
 
   Here's some supported HTML tags,
 

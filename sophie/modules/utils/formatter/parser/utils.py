@@ -17,11 +17,12 @@
 #
 # This file is part of Sophie.
 import html
-from typing import List
+from typing import List, Optional
 import struct
 
 from aiogram.api.types.message_entity import MessageEntity
 from aiogram.utils.helper import Helper, HelperMode, Item
+from aiogram.utils.text_decorations import HtmlDecoration
 
 
 def add_surrogate(text: str) -> str:
@@ -109,3 +110,30 @@ def _co_entities(entities: List[_MutableMessageEntity]) -> List[MessageEntity]:
 
 def _escape_html(text: str) -> str:
     return html.escape(text, quote=False)
+
+
+def _gen_writeable_ents(ents: List[MessageEntity]) -> List[_MutableMessageEntity]:
+    result = []
+    for ent in ents:
+        result.append(_MutableMessageEntity(**ent.dict()))
+    return result
+
+
+class __NoEscapeUnparse(HtmlDecoration):
+    def quote(self, value: str) -> str:
+        return value
+
+
+_no_escape_unparse = __NoEscapeUnparse().unparse
+
+
+def rm_obsolete_ents(ents: Optional[List[MessageEntity]]) -> Optional[List[MessageEntity]]:
+    if not ents:
+        return ents
+
+    _acc_ents = [
+        MessageEntityType.BOLD, MessageEntityType.ITALIC,
+        MessageEntityType.CODE, MessageEntityType.PRE,
+        MessageEntityType.UNDERLINE, MessageEntityType.STRIKETHROUGH
+    ]
+    return list(filter(lambda x: x.type in _acc_ents, ents))

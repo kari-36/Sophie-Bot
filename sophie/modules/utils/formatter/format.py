@@ -23,6 +23,7 @@ from typing import List, Literal, Optional, TYPE_CHECKING, Union
 
 from .compiler import RawNoteModel
 from .parser import parse_html, parse_markdown
+from .parser.utils import rm_obsolete_ents
 from .validator import validate
 
 if TYPE_CHECKING:
@@ -63,13 +64,17 @@ class _Format:
             return False
 
         if self.text and data.text:
+            msg_ents = [] if not self.entities else self.entities.copy()
             if parser in ('md', 'markdown'):
-                data.text, data.entities = parse_markdown(data.text)
-            elif parser in ('html',):
-                data.text, data.entities = parse_html(data.text)
+                text, ents = parse_markdown(data.text, rm_obsolete_ents(msg_ents))
+            elif parser in ('html', 'htm'):
+                text, ents = parse_html(data.text, rm_obsolete_ents(msg_ents))
+            else:
+                text, ents = data.text, []
             # merge entities
-            if self.entities and data.entities is not None:
-                data.entities.extend(self.entities)
+            if ents:
+                data.entities = ents
+            data.text = text
         return data
 
     def get_parse_mode(self) -> str:
@@ -79,9 +84,8 @@ class _Format:
         match = re.search(r'%PARSEMODE_(?P<parse_mode>\w+)', self.text)
         if match is not None:
             if (mode := match.group('parse_mode')) is not None:
-                if mode.lower() in {'md', 'html', 'none', 'markdown'}:
-                    self.text = re.sub(r'%PARSEMODE_(?P<parse_mode>\w+)\s?', '', self.text, 1)  # noqa
-                    return mode.lower()
+                self.text = re.sub(r'%PARSEMODE_(?P<parse_mode>\w+)\s?', '', self.text, 1)  # noqa
+                return mode.lower()
         return self._default_parser
 
 

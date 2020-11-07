@@ -18,17 +18,20 @@
 # This file is part of Sophie.
 
 import re
-from typing import Any, List, Tuple
+from typing import Any, List, Optional, Tuple
 
 from aiogram.api.types import MessageEntity
 
-from .utils import _MutableMessageEntity, MessageEntityType, _co_entities, _escape_html, add_surrogate, del_surrogate, \
-    strip_text
+from .utils import (
+    _MutableMessageEntity, MessageEntityType, _co_entities, _gen_writeable_ents,
+    _escape_html, add_surrogate, del_surrogate, strip_text
+)
 
 DELIMITERS = {
-    '*': MessageEntityType.BOLD,
-    '_': MessageEntityType.ITALIC,
-    '~': MessageEntityType.STRIKETHROUGH,
+    '**': MessageEntityType.BOLD,
+    '__': MessageEntityType.ITALIC,
+    '~~': MessageEntityType.STRIKETHROUGH,
+    '++': MessageEntityType.UNDERLINE,
     '`': MessageEntityType.CODE,
     '```': MessageEntityType.PRE
 }
@@ -41,7 +44,7 @@ URL_RE = re.compile(r'\[([\S\s]+?)]\((.+?)\)')
 DELIM_RE = re.compile('|'.join('({})'.format(re.escape(k)) for k in sorted(DELIMITERS, key=len, reverse=True)))
 
 
-def parse_markdown(text: str) -> Tuple[str, List[MessageEntity]]:
+def parse_markdown(text: str, entities: Optional[List[MessageEntity]]) -> Tuple[str, List[MessageEntity]]:
     """
     Parses the given markdown message and returns its stripped representation
     plus a list of the MessageEntity's that were found.
@@ -49,7 +52,7 @@ def parse_markdown(text: str) -> Tuple[str, List[MessageEntity]]:
 
     # Cannot use a for loop because we need to skip some indices
     i = 0
-    result: List[_MutableMessageEntity] = []
+    result: List[_MutableMessageEntity] = [] if entities is None else _gen_writeable_ents(entities)
 
     # Work on byte level with the utf-16le encoding to get the offsets right.
     # The offset will just be half the index we're at.

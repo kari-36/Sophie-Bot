@@ -22,8 +22,10 @@ from typing import Deque, Dict, List, Optional, Tuple
 
 from aiogram.api.types import MessageEntity
 
-from .utils import MessageEntityType, _MutableMessageEntity, _co_entities, _escape_html, add_surrogate, del_surrogate, \
-    strip_text
+from .utils import (
+    MessageEntityType, _MutableMessageEntity, _co_entities, _no_escape_unparse,
+    _escape_html, add_surrogate, del_surrogate, strip_text
+)
 
 BOLD = {'b', 'strong'}
 ITALICS = {'i', 'em'}
@@ -125,7 +127,11 @@ class _HTMLToTelegramParser(HTMLParser):
         raise ValueError(message)
 
 
-def parse_html(html: str) -> Tuple[str, List[MessageEntity]]:
+def parse_html(html: str, entities: Optional[List[MessageEntity]]) -> Tuple[str, List[MessageEntity]]:
+    # When dealing with HTML, existing entities' offset would be modified
+    # As a workaround, initially we unparse the (preserving html) text, then feed it into parser
+    html = _no_escape_unparse(html, entities)
+
     parser = _HTMLToTelegramParser()
     parser.feed(add_surrogate(html))
     text = strip_text(parser.text, parser.entities)
