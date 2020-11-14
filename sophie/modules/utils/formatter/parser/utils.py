@@ -162,7 +162,8 @@ def rm_obsolete_ents(ents: Optional[List[MessageEntity]]) -> Optional[List[Messa
     _acc_ents = [
         MessageEntityType.BOLD, MessageEntityType.ITALIC,
         MessageEntityType.CODE, MessageEntityType.PRE,
-        MessageEntityType.UNDERLINE, MessageEntityType.STRIKETHROUGH
+        MessageEntityType.UNDERLINE, MessageEntityType.STRIKETHROUGH,
+        MessageEntityType.TEXT_LINK, MessageEntityType.TEXT_MENTION
     ]
     return list(filter(lambda x: x.type in _acc_ents, ents))
 
