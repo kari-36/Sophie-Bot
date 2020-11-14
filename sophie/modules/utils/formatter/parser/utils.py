@@ -16,9 +16,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # This file is part of Sophie.
+
+from __future__ import annotations
+
 import html
-from typing import List, Optional
 import struct
+from typing import Any, List, Optional, TypeVar, cast, overload
 
 from aiogram.api.types.message_entity import MessageEntity
 from aiogram.utils.helper import Helper, HelperMode, Item
@@ -98,12 +101,24 @@ class MessageEntityType(Helper):
     TEXT_MENTION = Item()  # text_mention -  for users without usernames
 
 
+@overload
+def _co_entities(entities: _MutableMessageEntity) -> MessageEntity:
+    ...
+
+
+@overload
 def _co_entities(entities: List[_MutableMessageEntity]) -> List[MessageEntity]:
+    ...
+
+
+def _co_entities(entities: Any) -> Any:
     """
     Convert internal-use "_MutableMessageEntity" into MessageEntity
     """
+    if type(entities) is not list:
+        return MessageEntity(**entities.dict())
     result = []
-    for ent in entities:
+    for ent in entities.copy():
         result.append(MessageEntity(**ent.dict()))
     return result
 
@@ -112,7 +127,20 @@ def _escape_html(text: str) -> str:
     return html.escape(text, quote=False)
 
 
+@overload
+def _gen_writeable_ents(ents: MessageEntity) -> _MutableMessageEntity:
+    ...
+
+
+@overload
 def _gen_writeable_ents(ents: List[MessageEntity]) -> List[_MutableMessageEntity]:
+    ...
+
+
+def _gen_writeable_ents(ents: Any) -> Any:
+    if type(ents) is not list:
+        return _MutableMessageEntity(**ents.dict())
+
     result = []
     for ent in ents:
         result.append(_MutableMessageEntity(**ent.dict()))
@@ -137,3 +165,33 @@ def rm_obsolete_ents(ents: Optional[List[MessageEntity]]) -> Optional[List[Messa
         MessageEntityType.UNDERLINE, MessageEntityType.STRIKETHROUGH
     ]
     return list(filter(lambda x: x.type in _acc_ents, ents))
+
+
+_L = TypeVar('_L', MessageEntity, _MutableMessageEntity)
+
+
+def update_ents(entities: List[_L], offset: int, length: int, split_length: bool = True) -> List[_L]:
+    result = []
+    for ent in entities.copy():
+        if _filter_ent(ent, offset):
+            mut_ent = cast(
+                _MutableMessageEntity, _gen_writeable_ents(ent) if type(ent) is not _MutableMessageEntity else ent
+            )
+            if mut_ent.offset + mut_ent.length >= offset:
+                mut_ent.length -= length
+                mut_ent.offset -= length
+            elif mut_ent.offset >= offset <= mut_ent.length + mut_ent.offset:
+                # look like thing is between first and end
+                mut_ent.length -= round(length / 2) if split_length else length
+            ent = cast(_L, _co_entities(mut_ent) if type(ent) is not _MutableMessageEntity else ent)
+        result.append(ent)
+    return result
+
+
+def _filter_ent(_ent: MessageEntity, limit: int) -> bool:
+    if _ent.offset <= limit:
+        return True
+    elif _ent.offset >= limit <= _ent.offset + _ent.length:
+        return True
+    else:
+        return False

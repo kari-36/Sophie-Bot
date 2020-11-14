@@ -18,14 +18,12 @@
 
 from __future__ import annotations
 
-import html
 import inspect
 from typing import Any, Callable, List, Optional, TYPE_CHECKING, Union
 
 from aiogram.api.types import (
     ForceReply, InlineKeyboardMarkup, Message, MessageEntity, ReplyKeyboardMarkup, ReplyKeyboardRemove
 )
-from aiogram.utils.text_decorations import html_decoration
 from pydantic import BaseModel, Extra, Field
 
 from sophie.services.aiogram import bot
@@ -38,9 +36,8 @@ if TYPE_CHECKING:
 
 class ParsedNoteModel(BaseModel):
     text: Optional[str] = Field(None, alias="caption")
-    reply_markup: Optional[
-        Union[InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply]
-    ] = None
+    reply_markup: Optional[Union[InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply]]
+    entities: Optional[List[MessageEntity]]
 
     class Config:
         allow_population_by_field_name = True
@@ -60,7 +57,7 @@ class RawNoteModel(BaseModel):
         if not chat:
             chat = message.chat
 
-        payload = ParsedNoteModel(text=self.text)
+        payload = ParsedNoteModel(text=self.text, entities=self.entities)
         for plugin in get_all_plugins(included=self.plugins):
             kwargs = self._generate_kwargs(
                 plugin.compile_, message=message, data=self, payload=payload, chat=chat, user=user
@@ -74,10 +71,7 @@ class RawNoteModel(BaseModel):
         if not chat:
             chat = message.chat
 
-        payload = ParsedNoteModel(text="")
-        if self.text is not None:
-            payload.text = html.escape(html.unescape(self.text), quote=False)
-
+        payload = ParsedNoteModel(text=self.text)
         for plugin in get_all_plugins(included=self.plugins):
             kwargs = self._generate_kwargs(
                 plugin.decompile, message=message, data=self, payload=payload, chat=chat, user=user
@@ -94,11 +88,9 @@ class RawNoteModel(BaseModel):
             return request
         return bot.send_message
 
-    def _build_text(self, obj: ParsedNoteModel, fallback_text: str) -> None:
-        if obj.text:
-            text = html_decoration.unparse(obj.text, self.entities)
-            obj.text = text
-        else:
+    @classmethod
+    def _build_text(cls, obj: ParsedNoteModel, fallback_text: str) -> None:
+        if not obj.text:
             obj.text = fallback_text
 
     @classmethod

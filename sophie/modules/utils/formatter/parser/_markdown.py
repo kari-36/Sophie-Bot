@@ -24,7 +24,7 @@ from aiogram.api.types import MessageEntity
 
 from .utils import (
     _MutableMessageEntity, MessageEntityType, _co_entities, _gen_writeable_ents,
-    _escape_html, add_surrogate, del_surrogate, strip_text
+    _escape_html, add_surrogate, del_surrogate, strip_text, update_ents
 )
 
 DELIMITERS = {
@@ -78,14 +78,7 @@ def parse_markdown(text: str, entities: Optional[List[MessageEntity]]) -> Tuple[
                 ))
 
                 # Check other affected entities
-                for ent in result:
-                    # If the end is after our start, it is affected
-                    if ent.offset + ent.length > i:
-                        # If the old start is also before ours, it is fully enclosed
-                        if ent.offset <= i:
-                            ent.length -= len(delim) * 2
-                        else:
-                            ent.length -= len(delim)
+                result = update_ents(result, i, len(delim) * 2)
 
                 # Append the found entity
                 ent_type = DELIMITERS[delim]
@@ -112,10 +105,7 @@ def parse_markdown(text: str, entities: Optional[List[MessageEntity]]) -> Tuple[
                 ))
 
                 delim_size = m.end() - m.start() - len(m.group())
-                for ent in result:
-                    # If the end is after our start, it is affected
-                    if ent.offset + ent.length > m.start():
-                        ent.length -= delim_size
+                result = update_ents(result, i, delim_size, split_length=False)
 
                 result.append(_generate_ent(
                     MessageEntityType.URL,

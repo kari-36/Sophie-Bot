@@ -23,8 +23,8 @@ from typing import Deque, Dict, List, Optional, Tuple
 from aiogram.api.types import MessageEntity
 
 from .utils import (
-    MessageEntityType, _MutableMessageEntity, _co_entities, _no_escape_unparse,
-    _escape_html, add_surrogate, del_surrogate, strip_text
+    MessageEntityType, _MutableMessageEntity, _co_entities, _gen_writeable_ents, _no_escape_unparse,
+    _escape_html, add_surrogate, del_surrogate, strip_text, update_ents
 )
 
 BOLD = {'b', 'strong'}
@@ -34,14 +34,19 @@ STRIKETHROUGH = {'s', 'del', 'strike'}
 CODE = {'code', 'pre'}
 LINK = {'a'}
 
+OPEN_TAG = "<{0}>"
+CLOSE_TAG = "</{0}>"
+URL_OPEN_TAG = "<a href={0}>"
+
 
 class _HTMLToTelegramParser(HTMLParser):
-    def __init__(self) -> None:
+    def __init__(self, entities: List[_MutableMessageEntity]) -> None:
         super(_HTMLToTelegramParser, self).__init__(convert_charrefs=False)
 
         self.text = ''
 
         self.entities: List[_MutableMessageEntity] = []
+        self.existing_entities: List[_MutableMessageEntity] = entities
         self._building_entities: Dict[str, _MutableMessageEntity] = {}
 
         self._open_tags: Deque[str] = deque()
@@ -54,6 +59,7 @@ class _HTMLToTelegramParser(HTMLParser):
         dict_attrs = dict(attrs)
         entity_type = None
         args = {}
+        count = 0
         if tag in BOLD:
             entity_type = MessageEntityType.BOLD
         elif tag in ITALICS:
@@ -62,7 +68,7 @@ class _HTMLToTelegramParser(HTMLParser):
             entity_type = MessageEntityType.UNDERLINE
         elif tag in STRIKETHROUGH:
             entity_type = MessageEntityType.STRIKETHROUGH
-        elif tag == 'code':
+        elif tag in {MessageEntityType.CODE, MessageEntityType.PRE}:
             try:
                 pre = self._building_entities['pre']
                 try:
@@ -72,25 +78,18 @@ class _HTMLToTelegramParser(HTMLParser):
                     pass
             except KeyError:
                 entity_type = MessageEntityType.CODE
-        elif tag == 'pre':
-            entity_type = MessageEntityType.PRE
-            args['language'] = ''
         elif tag in LINK:
             try:
                 if (url := dict_attrs['href']) is None:
                     return
             except KeyError:
                 return
-            if url.startswith('mailto:'):
-                url = url[len('mailto:'):]
-                entity_type = MessageEntityType.EMAIL
+            if self.get_starttag_text() == url:
+                entity_type = MessageEntityType.URL
             else:
-                if self.get_starttag_text() == url:
-                    entity_type = MessageEntityType.URL
-                else:
-                    entity_type = MessageEntityType.TEXT_LINK
-                    args['url'] = url
-                    url = None
+                entity_type = MessageEntityType.TEXT_LINK
+                args['url'] = url
+                url = None
             self._open_tags_meta.popleft()
             self._open_tags_meta.appendleft(url)
 
@@ -100,6 +99,10 @@ class _HTMLToTelegramParser(HTMLParser):
                 offset=len(self.text),
                 length=0,
                 **args,)
+
+            self.existing_entities = update_ents(
+                self.existing_entities, len(self.text), len(OPEN_TAG.format(tag)) if count != 0 else count
+            )
 
     def handle_data(self, text: str) -> None:
         previous_tag = self._open_tags[0] if len(self._open_tags) > 0 else ''
@@ -122,6 +125,9 @@ class _HTMLToTelegramParser(HTMLParser):
         entity = self._building_entities.pop(tag, None)
         if entity:
             self.entities.append(entity)
+            self.existing_entities = update_ents(
+                self.existing_entities, entity.offset + entity.length, len(CLOSE_TAG.format(tag))
+            )
 
     def error(self, message: str) -> None:
         raise ValueError(message)
@@ -132,7 +138,7 @@ def parse_html(html: str, entities: Optional[List[MessageEntity]]) -> Tuple[str,
     # As a workaround, initially we unparse the (preserving html) text, then feed it into parser
     html = _no_escape_unparse(html, entities)
 
-    parser = _HTMLToTelegramParser()
+    parser = _HTMLToTelegramParser(_gen_writeable_ents(entities) if entities else [])
     parser.feed(add_surrogate(html))
     text = strip_text(parser.text, parser.entities)
     return _escape_html(del_surrogate(text)), _co_entities(parser.entities)
