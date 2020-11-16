@@ -281,9 +281,7 @@ STRINGS:
     already_fbanned: "{user} bu federasyonda zaten yasaklanmıştı."
     fbanned_header: "<b>Yeni FedBan</b>\n"
     fban_info: |
-      <b> Federasyon: </b> {fed}
-       <b> Fed yöneticisi: </b> {fadmin}
-       <b> Kullanıcı: </b> {user} (<code> {user_id} </code>)
+      | #ChatLeaved <b>Federasyon:</b>{fed}<b>Federasyon yöneticisi:</b>{fadmin}<b>Kullanıcı:</b>{user}(<code>{user_id}</code>)
     fbanned_reason: "<b>Nedeni:</b> <code>{reason}</code>"
     fbanned_process: "<b>Durum:</b> <code>{num}</code> adet federasyon sohbetlerinden yasaklanıyor..."
     fbanned_done: "<b>Durum:</b> Bitti! <code>{num}</code> adet federasyon sohbetlerinden yasaklandı!"
@@ -443,7 +441,7 @@ STRINGS:
     info_last: "\nSoyisim: {last_name}"
     info_username: "Kullanıcı adı: {username}"
     info_link: "\nKullanıcı bağlantısı: {user_link}"
-    info_saw: "\nOnları <code> {num} </code> gruplarda gördüm"
+    info_saw: "Onu yaklaşık olarak <code>{num}</code> adet grupta gördüm"
     info_fbanned: "\nBulunan örgütte yasaklı: "
     info_admeme: "\nKullanıcı bu sohbette yönetici."
     upd_cache: "Önbellek şimdi güncelleniyor..."
