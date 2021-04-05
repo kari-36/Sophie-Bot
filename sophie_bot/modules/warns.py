@@ -42,19 +42,18 @@ from .utils.user_details import (
     get_user_and_text_dec, get_user_dec,
     get_user_link, is_user_admin
 )
+from ..models.connections import Chat
 
 
 @register(cmds='warn', user_can_restrict_members=True, bot_can_restrict_members=True)
 @chat_connection(admin=True, only_groups=True)
 @get_user_and_text_dec()
-async def warn_cmd(message, chat, user, text):
+async def warn_cmd(message: Message, chat: Chat, user, text):
     await warn_func(message, chat, user, text)
 
 
 @get_strings_dec('warns')
-async def warn_func(message: Message, chat, user, text, strings, filter_action=False):
-    chat_id = chat['chat_id']
-    chat_title = chat['chat_title']
+async def warn_func(message: Message, chat: Chat, user, text, strings, filter_action=False):
     by_id = BOT_ID if filter_action is True else message.from_user.id
     user_id = user['user_id'] if filter_action is False else user
 
@@ -67,7 +66,7 @@ async def warn_func(message: Message, chat, user, text, strings, filter_action=F
             await message.reply(strings['warn_self'])
             return
 
-    if await is_user_admin(chat_id, user_id):
+    if await is_user_admin(chat.id, user_id):
         if not filter_action:
             await message.reply(strings['warn_admin'])
         return
@@ -75,45 +74,45 @@ async def warn_func(message: Message, chat, user, text, strings, filter_action=F
     reason = text
     warn_id = str((await db.warns.insert_one({
         'user_id': user_id,
-        'chat_id': chat_id,
+        'chat_id': chat.id,
         'reason': str(reason),
         'by': by_id
     })).inserted_id)
 
     admin = await get_user_link(by_id)
     member = await get_user_link(user_id)
-    text = strings['warn'].format(admin=admin, user=member, chat_name=chat_title)
+    text = strings['warn'].format(admin=admin, user=member, chat_name=chat.title)
 
     if reason:
         text += strings['warn_rsn'].format(reason=reason)
 
-    warns_count = await db.warns.count_documents({'chat_id': chat_id, 'user_id': user_id})
+    warns_count = await db.warns.count_documents({'chat_id': chat.id, 'user_id': user_id})
 
     buttons = InlineKeyboardMarkup().add(InlineKeyboardButton(
         "⚠️ Remove warn", callback_data='remove_warn_{}'.format(warn_id)
     ))
 
-    if await db.rules.find_one({'chat_id': chat_id}):
+    if await db.rules.find_one({'chat_id': chat.id}):
         buttons.insert(InlineKeyboardButton(
-            "📝 Rules", url=await get_start_link(f'btn_rules_{chat_id}')
+            "📝 Rules", url=await get_start_link(f'btn_rules_{chat.id}')
         ))
 
-    if warn_limit := await db.warnlimit.find_one({'chat_id': chat_id}):
+    if warn_limit := await db.warnlimit.find_one({'chat_id': chat.id}):
         max_warn = int(warn_limit['num'])
     else:
         max_warn = 3
 
     if filter_action:
-        action = functools.partial(bot.send_message, chat_id=chat_id)
+        action = functools.partial(bot.send_message, chat_id=chat.id)
     elif message.reply_to_message:
         action = message.reply_to_message.reply
     else:
         action = functools.partial(message.reply, disable_notification=True)
 
     if warns_count >= max_warn:
-        if await max_warn_func(chat_id, user_id):
-            await db.warns.delete_many({'user_id': user_id, 'chat_id': chat_id})
-            data = await db.warnmode.find_one({'chat_id': chat_id})
+        if await max_warn_func(chat.id, user_id):
+            await db.warns.delete_many({'user_id': user_id, 'chat_id': chat.id})
+            data = await db.warnmode.find_one({'chat_id': chat.id})
             if data is not None:
                 if data['mode'] == 'tmute':
                     text = strings['max_warn_exceeded:tmute'].format(
@@ -146,14 +145,13 @@ async def rmv_warn_btn(event, strings, regexp=None, **kwargs):
 @chat_connection(admin=True, only_groups=True)
 @get_user_dec(allow_self=True)
 @get_strings_dec('warns')
-async def warns(message, chat, user, strings):
-    chat_id = chat['chat_id']
+async def warns(message: Message, chat: Chat, user, strings):
     user_id = user['user_id']
     text = strings['warns_header']
     user_link = await get_user_link(user_id)
 
     count = 0
-    async for warn in db.warns.find({'user_id': user_id, 'chat_id': chat_id}):
+    async for warn in db.warns.find({'user_id': user_id, 'chat_id': chat.id}):
         count += 1
         by = await get_user_link(warn['by'])
         rsn = warn['reason']
@@ -172,17 +170,15 @@ async def warns(message, chat, user, strings):
 @register(cmds='warnlimit', user_admin=True)
 @chat_connection(admin=True, only_groups=True)
 @get_strings_dec('warns')
-async def warnlimit(message, chat, strings):
-    chat_id = chat['chat_id']
-    chat_title = chat['chat_title']
+async def warnlimit(message: Message, chat: Chat, strings):
     arg = message.get_args().split()
 
     if not arg:
-        if current_limit := await db.warnlimit.find_one({'chat_id': chat_id}):
+        if current_limit := await db.warnlimit.find_one({'chat_id': chat.id}):
             num = current_limit['num']
         else:
             num = 3  # Default value
-        await message.reply(strings['warn_limit'].format(chat_name=chat_title, num=num))
+        await message.reply(strings['warn_limit'].format(chat_name=chat.title, num=num))
     elif not arg[0].isdigit():
         return await message.reply(strings['not_digit'])
     else:
@@ -193,11 +189,11 @@ async def warnlimit(message, chat, strings):
             return await message.reply(strings['warnlimit_long'])
 
         new = {
-            'chat_id': chat_id,
+            'chat_id': chat.id,
             'num': int(arg[0])
         }
 
-        await db.warnlimit.update_one({'chat_id': chat_id}, {'$set': new}, upsert=True)
+        await db.warnlimit.update_one({'chat_id': chat.id}, {'$set': new}, upsert=True)
         await message.reply(strings['warnlimit_updated'].format(num=int(arg[0])))
 
 
@@ -205,9 +201,7 @@ async def warnlimit(message, chat, strings):
 @chat_connection(admin=True, only_groups=True)
 @get_user_dec()
 @get_strings_dec('warns')
-async def reset_warn(message, chat, user, strings):
-    chat_id = chat['chat_id']
-    chat_title = chat['chat_title']
+async def reset_warn(message: Message, chat: Chat, user, strings):
     user_id = user['user_id']
     user_link = await get_user_link(user_id)
     admin_link = await get_user_link(message.from_user.id)
@@ -216,11 +210,11 @@ async def reset_warn(message, chat, user, strings):
         await message.reply(strings['rst_wrn_sofi'])
         return
 
-    if await db.warns.find_one({'chat_id': chat_id, 'user_id': user_id}):
-        deleted = await db.warns.delete_many({'chat_id': chat_id, 'user_id': user_id})
+    if await db.warns.find_one({'chat_id': chat.id, 'user_id': user_id}):
+        deleted = await db.warns.delete_many({'chat_id': chat.id, 'user_id': user_id})
         purged = deleted.deleted_count
         await message.reply(strings['purged_warns'].format(
-            admin=admin_link, num=purged, user=user_link, chat_title=chat_title))
+            admin=admin_link, num=purged, user=user_link, chat_title=chat.title))
     else:
         await message.reply(strings['usr_no_wrn'].format(user=user_link))
 
@@ -228,19 +222,18 @@ async def reset_warn(message, chat, user, strings):
 @register(cmds=['warnmode', 'warnaction'], user_admin=True, bot_can_restrict_members=True)
 @chat_connection(admin=True)
 @get_strings_dec('warns')
-async def warnmode(message, chat, strings):
-    chat_id = chat['chat_id']
+async def warnmode(message: Message, chat: Chat, strings):
     acceptable_args = ['ban', 'tmute', 'mute']
     arg = str(message.get_args()).split()
-    new = {'chat_id': chat_id}
+    new = {'chat_id': chat.id}
 
     if arg and arg[0] in acceptable_args:
         option = ''.join(arg[0])
-        if (data := await db.warnmode.find_one({'chat_id': chat_id})) is not None and data['mode'] == option:
+        if (data := await db.warnmode.find_one({'chat_id': chat.id})) is not None and data['mode'] == option:
             return await message.reply(strings['same_mode'])
         if arg[0] == acceptable_args[0]:
             new['mode'] = option
-            await db.warnmode.update_one({'chat_id': chat_id},
+            await db.warnmode.update_one({'chat_id': chat.id},
                                          {'$set': new}, upsert=True)
         elif arg[0] == acceptable_args[1]:
             try:
@@ -256,16 +249,16 @@ async def warnmode(message, chat, strings):
                     return await message.reply(strings['invalid_time'])
                 else:
                     new.update(mode=option, time=time)
-                    await db.warnmode.update_one({'chat_id': chat_id},
+                    await db.warnmode.update_one({'chat_id': chat.id},
                                                  {'$set': new}, upsert=True)
         elif arg[0] == acceptable_args[2]:
             new['mode'] = option
-            await db.warnmode.update_one({'chat_id': chat_id},
+            await db.warnmode.update_one({'chat_id': chat.id},
                                          {'$set': new}, upsert=True)
-        await message.reply(strings['warnmode_success'] % (chat['chat_title'], option))
+        await message.reply(strings['warnmode_success'] % (chat.title, option))
     else:
         text = ''
-        if (curr_mode := await db.warnmode.find_one({'chat_id': chat_id})) is not None:
+        if (curr_mode := await db.warnmode.find_one({'chat_id': chat.id})) is not None:
             mode = curr_mode['mode']
             text += strings['mode_info'] % mode
         text += strings['wrng_args']
@@ -316,8 +309,8 @@ async def __import__(chat_id, data):
 
 
 @get_strings_dec('warns')
-async def filter_handle(message, chat, data, string=None):
-    if await is_user_admin(chat['chat_id'], message.from_user.id):
+async def filter_handle(message: Message, chat: Chat, data, string=None):
+    if await is_user_admin(chat.id, message.from_user.id):
         return
     target_user = message.from_user.id
     text = data.get('reason', None) or string['filter_handle_rsn']

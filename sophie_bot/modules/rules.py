@@ -18,8 +18,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import re
+from typing import Dict
 
 from aiogram.dispatcher.filters import CommandStart
+from aiogram.types import Message
 
 from sophie_bot.decorator import register
 from sophie_bot.services.mongo import db
@@ -30,32 +32,30 @@ from .utils.notes import (
     BUTTONS, get_parsed_note_list,
     send_note, unparse_note_item
 )
+from ..models.connections import Chat
 
 
 @register(cmds=['setrules', 'saverules'], user_admin=True)
 @chat_connection(admin=True, only_groups=True)
 @get_strings_dec('rules')
-async def set_rules(message, chat, strings):
-    chat_id = chat['chat_id']
-
+async def set_rules(message: Message, chat: Chat, strings: Dict[str, str]):
     # FIXME: documents are allow to saved (why?), check for args if no 'reply_to_message'
     note = await get_parsed_note_list(message, allow_reply_message=True, split_args=-1)
-    note['chat_id'] = chat_id
+    note['chat_id'] = chat.id
 
-    if (await db.rules.replace_one({'chat_id': chat_id}, note, upsert=True)).modified_count > 0:
+    if (await db.rules.replace_one({'chat_id': chat.id}, note, upsert=True)).modified_count > 0:
         text = strings['updated']
     else:
         text = strings['saved']
 
-    await message.reply(text % chat['chat_title'])
+    await message.reply(text % chat.title)
 
 
 @register(cmds='rules')
 @disableable_dec('rules')
 @chat_connection(only_groups=True)
 @get_strings_dec('rules')
-async def rules(message, chat, strings):
-    chat_id = chat['chat_id']
+async def rules(message: Message, chat: Chat, strings: Dict[str, str]):
     send_id = message.chat.id
 
     if 'reply_to_message' in message:
@@ -69,11 +69,11 @@ async def rules(message, chat, strings):
         arg1 = None
     noformat = arg1 in ('noformat', 'raw')
 
-    if not (db_item := await db.rules.find_one({'chat_id': chat_id})):
+    if not (db_item := await db.rules.find_one({'chat_id': chat.id})):
         await message.reply(strings['not_found'])
         return
 
-    text, kwargs = await unparse_note_item(message, db_item, chat_id, raw=noformat)
+    text, kwargs = await unparse_note_item(message, db_item, chat.id, raw=noformat)
     kwargs['reply_to'] = rpl_id
 
     await send_note(send_id, text, **kwargs)
@@ -82,10 +82,8 @@ async def rules(message, chat, strings):
 @register(cmds='resetrules', user_admin=True)
 @chat_connection(admin=True, only_groups=True)
 @get_strings_dec('rules')
-async def reset_rules(message, chat, strings):
-    chat_id = chat['chat_id']
-
-    if (await db.rules.delete_one({'chat_id': chat_id})).deleted_count < 1:
+async def reset_rules(message: Message, chat: Chat, strings: Dict[str, str]):
+    if (await db.rules.delete_one({'chat_id': chat.id})).deleted_count < 1:
         await message.reply(strings['not_found'])
         return
 

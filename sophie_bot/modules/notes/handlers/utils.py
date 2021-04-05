@@ -20,9 +20,11 @@
 
 from contextlib import suppress
 
+from aiogram.types import Message
 from aiogram.utils.exceptions import MessageNotModified
 from pymongo import UpdateOne
 
+from sophie_bot.models.connections import Chat
 from sophie_bot.modules.utils.language import get_string
 from sophie_bot.services.mongo import db, engine
 from ..models import SavedNote, PrivateNotes, CleanNotes, ExportModel, MAX_NOTES_PER_CHAT
@@ -80,12 +82,11 @@ async def __import_data__(chat_id: int, data: ExportModel, overwrite=False):
     await engine.get_collection(SavedNote).bulk_write(batch_actions)
 
 
-async def filter_handle(message, chat, data):
-    chat_id = chat['chat_id']
+async def filter_handle(message: Message, chat: Chat, data):
     read_chat_id = message.chat.id
     note_name = data['note_name']
-    note = await db.notes.find_one({'chat_id': chat_id, 'names': {'$in': [note_name]}})
-    await get_note(message, db_item=note, chat_id=chat_id, send_id=read_chat_id, rpl_id=None)
+    note = await db.notes.find_one({'chat_id': chat.id, 'names': {'$in': [note_name]}})
+    await get_note(message, db_item=note, chat_id=chat.id, send_id=read_chat_id, rpl_id=None)
 
 
 async def setup_start(message):

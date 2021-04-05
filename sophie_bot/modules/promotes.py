@@ -16,6 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import html
 
+from aiogram.types import Message
 from aiogram.utils.exceptions import ChatAdminRequired
 from telethon.errors import AdminRankEmojiNotAllowedError
 
@@ -28,17 +29,17 @@ from .utils.user_details import (
     get_user_dec, get_user_and_text_dec,
     get_user_link, get_admins_rights
 )
+from ..models.connections import Chat
 
 
 @register(cmds="promote", bot_can_promote_members=True, user_can_promote_members=True)
 @chat_connection(admin=True, only_groups=True)
 @get_user_and_text_dec()
 @get_strings_dec('promotes')
-async def promote(message, chat, user, args, strings):
-    chat_id = chat['chat_id']
+async def promote(message: Message, chat: Chat, user, args, strings):
     text = strings['promote_success'].format(
         user=await get_user_link(user['user_id']),
-        chat_name=chat['chat_title']
+        chat_name=chat.title
     )
 
     if user['user_id'] == BOT_ID:
@@ -58,7 +59,7 @@ async def promote(message, chat, user, args, strings):
 
     try:
         await tbot.edit_admin(
-            chat_id,
+            chat.id,
             user['user_id'],
             invite_users=True,
             change_info=True,
@@ -71,7 +72,7 @@ async def promote(message, chat, user, args, strings):
         return await message.reply(strings['cant_get_user'])
     except AdminRankEmojiNotAllowedError:
         return await message.reply(strings['emoji_not_allowed'])
-    await get_admins_rights(chat_id, force_update=True)  # Reset a cache
+    await get_admins_rights(chat.id, force_update=True)  # Reset a cache
     await message.reply(text)
 
 
@@ -79,21 +80,20 @@ async def promote(message, chat, user, args, strings):
 @chat_connection(admin=True, only_groups=True)
 @get_user_dec()
 @get_strings_dec('promotes')
-async def demote(message, chat, user, strings):
-    chat_id = chat['chat_id']
+async def demote(message: Message, chat: Chat, user, strings):
     if user['user_id'] == BOT_ID:
         return
 
     try:
         await bot.promote_chat_member(
-            chat_id,
+            chat.id,
             user['user_id']
         )
     except ChatAdminRequired:
         return await message.reply(strings['demote_failed'])
 
-    await get_admins_rights(chat_id, force_update=True)  # Reset a cache
+    await get_admins_rights(chat.id, force_update=True)  # Reset a cache
     await message.reply(strings['demote_success'].format(
         user=await get_user_link(user['user_id']),
-        chat_name=chat['chat_title']
+        chat_name=chat.title
     ))

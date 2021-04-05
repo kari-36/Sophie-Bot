@@ -25,6 +25,7 @@ from sophie_bot.decorator import register
 from .utils.language import get_strings_dec
 from .utils.notes import get_parsed_note_list, send_note, unparse_note_item
 from .utils.user_details import is_user_admin
+from ..models.connections import Chat
 
 
 @register(cmds='cancel', state='*', allow_kwargs=True)
@@ -33,18 +34,18 @@ async def cancel_handle(message, state, **kwargs):
     await message.reply('Cancelled.')
 
 
-async def delmsg_filter_handle(message, chat, data):
+async def delmsg_filter_handle(message, _: Chat, data):
     if await is_user_admin(data['chat_id'], message.from_user.id):
         return
     with suppress(MessageToDeleteNotFound):
         await message.delete()
 
 
-async def replymsg_filter_handler(message, chat, data):
-    text, kwargs = await unparse_note_item(message, data['reply_text'], chat['chat_id'])
+async def replymsg_filter_handler(message: Message, chat: Chat, data):
+    text, kwargs = await unparse_note_item(message, data['reply_text'], chat.id)
     kwargs['reply_to'] = message.message_id
     with suppress(BadRequest):
-        await send_note(chat['chat_id'], text, **kwargs)
+        await send_note(chat.id, text, **kwargs)
 
 
 @get_strings_dec('misc')

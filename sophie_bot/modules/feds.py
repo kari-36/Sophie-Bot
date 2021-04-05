@@ -28,7 +28,7 @@ import time
 import uuid
 from contextlib import suppress
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Dict
 
 import babel
 import ujson
@@ -53,6 +53,7 @@ from .utils.user_details import (
     is_chat_creator, get_user_link, get_user_and_text, check_admin_rights,
     is_user_admin, get_chat_dec
 )
+from ..models.connections import ChatTypes, Chat
 from ..utils.cached import cached
 
 
@@ -67,13 +68,13 @@ delfed_cb = CallbackData('delfed_cb', 'fed_id', 'creator_id')
 
 
 async def get_fed_f(message, disable_self_fed_check: bool = False):
-    chat = await get_connected_chat(message, admin=True)
-    if 'err_msg' not in chat:
-        if chat['status'] == 'private' and not disable_self_fed_check:
+    connection_data = await get_connected_chat(message, admin=True)
+    if connection_data.is_error():
+        if (chat := connection_data.chat).chat_type is ChatTypes.private and not disable_self_fed_check:
             # return fed which user is created
-            fed = await get_fed_by_creator(chat['chat_id'])
+            fed = await get_fed_by_creator(chat.id)
         else:
-            fed = await db.feds.find_one({'chats': {'$in': [chat['chat_id']]}})
+            fed = await db.feds.find_one({'chats': {'$in': [chat.id]}})
         if not fed:
             return False
         return fed
@@ -257,12 +258,11 @@ async def new_fed(message, strings):
 @need_args_dec()
 @chat_connection(admin=True, only_groups=True)
 @get_strings_dec("feds")
-async def join_fed(message, chat, strings):
+async def join_fed(message: Message, chat: Chat, strings: Dict[str, str]):
     fed_id = message.get_args().split(' ')[0]
     user_id = message.from_user.id
-    chat_id = chat['chat_id']
 
-    if not await is_chat_creator(message, chat_id, user_id):
+    if not await is_chat_creator(message, chat.id, user_id):
         await message.reply(strings['only_creators'])
         return
 
@@ -272,13 +272,13 @@ async def join_fed(message, chat, strings):
         return
 
     # Assume chat already joined this/other fed
-    if 'chats' in fed and chat_id in fed['chats']:
+    if 'chats' in fed and chat.id in fed['chats']:
         await message.reply(strings['joined_fed_already'])
         return
 
     await db.feds.update_one(
         {'_id': fed['_id']},
-        {"$addToSet": {'chats': {'$each': [chat_id]}}}
+        {"$addToSet": {'chats': {'$each': [chat.id]}}}
     )
     await get_fed_by_id.reset_cache(fed['fed_id'])
     await message.reply(strings['join_fed_success'].format(
@@ -287,8 +287,8 @@ async def join_fed(message, chat, strings):
     await fed_post_log(fed, strings['join_chat_fed_log'].format(
         fed_name=fed['fed_name'],
         fed_id=fed['fed_id'],
-        chat_name=chat['chat_title'],
-        chat_id=chat_id
+        chat_name=chat.title,
+        chat_id=chat.id
     ))
 
 
@@ -296,19 +296,19 @@ async def join_fed(message, chat, strings):
 @chat_connection(admin=True, only_groups=True)
 @get_current_chat_fed
 @get_strings_dec("feds")
-async def leave_fed_comm(message, chat, fed, strings):
+async def leave_fed_comm(message: Message, chat: Chat, fed, strings: Dict[str, str]):
     user_id = message.from_user.id
-    if not await is_chat_creator(message, chat['chat_id'], user_id):
+    if not await is_chat_creator(message, chat.id, user_id):
         await message.reply(strings['only_creators'])
         return
 
     await db.feds.update_one(
         {'_id': fed['_id']},
-        {'$pull': {'chats': chat['chat_id']}}
+        {'$pull': {'chats': chat.id}}
     )
     await get_fed_by_id.reset_cache(fed['fed_id'])
     await message.reply(strings['leave_fed_success'].format(
-        chat=chat['chat_title'], fed=html.escape(fed['fed_name'], False))
+        chat=chat.title, fed=html.escape(fed['fed_name'], False))
     )
 
     await fed_post_log(fed, strings['leave_chat_fed_log'].format(
@@ -1070,18 +1070,17 @@ async def import_state(message, fed, state=None, **kwargs):
 @decorator.register(only_groups=True)
 @chat_connection(only_groups=True)
 @get_strings_dec('feds')
-async def check_fbanned(message: Message, chat, strings):
+async def check_fbanned(message: Message, chat: Chat, strings: Dict[str, str]):
     if message.sender_chat:
         # should be channel/anon
         return
 
     user_id = message.from_user.id
-    chat_id = chat['chat_id']
 
     if not (fed := await get_fed_f(message)):
         return
 
-    elif await is_user_admin(chat_id, user_id):
+    elif await is_user_admin(chat.id, user_id):
         return
 
     feds_list = [fed['fed_id']]
@@ -1111,12 +1110,12 @@ async def check_fbanned(message: Message, chat, strings):
         if 'reason' in ban:
             text += strings['automatic_ban_reason'].format(text=ban['reason'])
 
-        if not await ban_user(chat_id, user_id):
+        if not await ban_user(chat.id, user_id):
             return
 
         await message.reply(text)
 
-        await db.fed_bans.update_one({'_id': ban['_id']}, {"$addToSet": {'banned_chats': chat_id}})
+        await db.fed_bans.update_one({'_id': ban['_id']}, {"$addToSet": {'banned_chats': chat.id}})
 
 
 @decorator.register(cmds=['fcheck', 'fbanstat'])

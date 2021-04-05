@@ -17,8 +17,12 @@
 
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+from typing import Dict
+
+from aiogram.types import Message
 
 from sophie_bot.decorator import register
+from sophie_bot.models.connections import Chat
 from sophie_bot.modules.utils.connections import chat_connection
 from sophie_bot.modules.utils.disable import disableable_dec
 from sophie_bot.modules.utils.language import get_strings_dec
@@ -38,9 +42,7 @@ RESTRICTED_SYMBOLS_IN_NOTENAMES = [':', '**', '__', '`', '"', '[', ']', "'", '$'
 @chat_connection(command='get')
 @get_strings_dec('notes')
 @clean_notes
-async def get_note_cmd(message, chat, strings):
-    chat_id = chat['chat_id']
-    chat_name = chat['chat_title']
+async def get_note_cmd(message: Message, chat: Chat, strings: Dict[str, str]):
     keep = False
 
     note_name = get_arg(message).lower()
@@ -58,14 +60,14 @@ async def get_note_cmd(message, chat, strings):
         user = message.from_user
 
     if not (
-    note := await engine.find_one(SavedNote, (SavedNote.chat_id == chat_id) & (SavedNote.names.in_([note_name])))):
-        text = strings['cant_find_note'].format(chat_name=chat_name)
-        if alleged_note_name := await get_similar_note(chat_id, note_name):
+    note := await engine.find_one(SavedNote, (SavedNote.chat_id == chat.id) & (SavedNote.names.in_([note_name])))):
+        text = strings['cant_find_note'].format(chat_name=chat.id)
+        if alleged_note_name := await get_similar_note(chat.id, note_name):
             text += strings['u_mean'].format(note_name=alleged_note_name)
         await message.reply(text)
         return
 
-    if note.group == 'admin' and not await is_user_admin(chat_id, user.id):
+    if note.group == 'admin' and not await is_user_admin(chat.id, user.id):
         return
 
     noformat = False
@@ -90,8 +92,7 @@ async def get_note_cmd(message, chat, strings):
 @disableable_dec('get')
 @chat_connection(command='get')
 @clean_notes
-async def get_note_hashtag(message, chat, regexp=None):
-    chat_id = chat['chat_id']
+async def get_note_hashtag(message: Message, chat: Chat, regexp=None):
     note_name = message.text.split(' ', 1)[0][1:].lower()
 
     if note_name[-1] == '!':
@@ -101,7 +102,7 @@ async def get_note_hashtag(message, chat, regexp=None):
         keep = False
 
     if not (
-    note := await engine.find_one(SavedNote, (SavedNote.chat_id == chat_id) & (SavedNote.names.in_([note_name])))):
+    note := await engine.find_one(SavedNote, (SavedNote.chat_id == chat.id) & (SavedNote.names.in_([note_name])))):
         return
 
     if 'reply_to_message' in message:
@@ -111,7 +112,7 @@ async def get_note_hashtag(message, chat, regexp=None):
         rpl_id = message.message_id
         user = message.from_user
 
-    if note.group == 'admin' and not await is_user_admin(chat_id, user.id):
+    if note.group == 'admin' and not await is_user_admin(chat.id, user.id):
         return
 
     note_data = await get_note(

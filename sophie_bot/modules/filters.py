@@ -22,6 +22,7 @@ import random
 import re
 from contextlib import suppress
 from string import printable
+from typing import Dict
 
 import regex
 from aiogram.dispatcher.filters.state import State, StatesGroup
@@ -43,6 +44,7 @@ from .utils.connections import chat_connection, get_connected_chat
 from .utils.language import get_strings_dec, get_string
 from .utils.message import need_args_dec, get_args_str
 from .utils.user_details import is_user_admin, is_chat_creator
+from ..models.connections import Chat
 
 filter_action_cp = CallbackData('filter_action_cp', 'filter_id')
 filter_remove_cp = CallbackData('filter_remove_cp', 'id')
@@ -72,13 +74,16 @@ async def update_handlers_cache(chat_id):
 
 
 @register()
-async def check_msg(message):
+async def check_msg(message: Message):
     log.debug("Running check msg for filters function.")
-    chat = await get_connected_chat(message, only_groups=True)
-    if 'err_msg' in chat or message.chat.type == 'private':
+    # REVISION: change logic in filter to avoid uneccessary call for checking connection
+    if message.chat.type == "private":
         return
 
-    chat_id = chat['chat_id']
+    if (connection_data := await get_connected_chat(message.chat, user_id=message.from_user.id, only_groups=True)).is_error():
+        return
+
+    chat_id = connection_data.chat.id
     if not (filters := redis.lrange(f'filters_cache_{chat_id}', 0, -1)):
         filters = await update_handlers_cache(chat_id)
 
@@ -110,14 +115,14 @@ async def check_msg(message):
             filters = db.filters.find({'chat_id': chat_id, 'handler': handler})
             async for filter in filters:
                 action = filter['action']
-                await FILTERS_ACTIONS[action]['handle'](message, chat, filter)
+                await FILTERS_ACTIONS[action]['handle'](message, connection_data.chat, filter)
 
 
 @register(cmds=['addfilter', 'newfilter'], is_admin=True)
 @need_args_dec()
 @chat_connection(only_groups=True, admin=True)
 @get_strings_dec('filters')
-async def add_handler(message, chat, strings):
+async def add_handler(message: Message, chat: Chat, strings: Dict[str, str]):
     # filters doesn't support anon admins
     if message.from_user.id == 1087968824:
         return await message.reply(strings['anon_detected'])
@@ -135,7 +140,7 @@ async def add_handler(message, chat, strings):
     else:
         handler = handler.lower()
 
-    text = strings['adding_filter'].format(handler=handler, chat_name=chat['chat_title'])
+    text = strings['adding_filter'].format(handler=handler, chat_name=chat.title)
 
     buttons = InlineKeyboardMarkup(row_width=2)
     for action in FILTERS_ACTIONS.items():
@@ -143,14 +148,13 @@ async def add_handler(message, chat, strings):
         data = action[1]
 
         buttons.insert(InlineKeyboardButton(
-            await get_string(chat['chat_id'], data['title']['module'], data['title']['string']),
+            await get_string(chat.id, data['title']['module'], data['title']['string']),
             callback_data=filter_action_cp.new(filter_id=filter_id)
         ))
     buttons.add(InlineKeyboardButton(strings['cancel_btn'], callback_data='cancel'))
 
     user_id = message.from_user.id
-    chat_id = chat['chat_id']
-    redis.set(f'add_filter:{user_id}:{chat_id}', handler)
+    redis.set(f'add_filter:{user_id}:{chat.id}', handler)
     if handler is not None:
         await message.reply(text, reply_markup=buttons)
 
@@ -169,22 +173,21 @@ async def save_filter(message, data, strings):
 @register(filter_action_cp.filter(), f='cb', allow_kwargs=True)
 @chat_connection(only_groups=True, admin=True)
 @get_strings_dec('filters')
-async def register_action(event, chat, strings, callback_data=None, state=None, **kwargs):
+async def register_action(event: CallbackQuery, chat: Chat, strings: Dict[str, str], callback_data=None, state=None, **kwargs):
     if not await is_user_admin(event.message.chat.id, event.from_user.id):
         return await event.answer('You are not admin to do this')
     filter_id = callback_data['filter_id']
     action = FILTERS_ACTIONS[filter_id]
 
     user_id = event.from_user.id
-    chat_id = chat['chat_id']
 
-    handler = redis.get(f'add_filter:{user_id}:{chat_id}')
+    handler = redis.get(f'add_filter:{user_id}:{chat.id}')
 
     if not handler:
         return await event.answer("Something went wrong! Please try again!", show_alert=True)
 
     data = {
-        'chat_id': chat_id,
+        'chat_id': chat.id,
         'handler': handler,
         'action': filter_id
     }
@@ -209,9 +212,8 @@ async def register_action(event, chat, strings, callback_data=None, state=None, 
 
 
 @register(state=NewFilter.setup, f='any', is_admin=True, allow_kwargs=True)
-@chat_connection(only_groups=True, admin=True)
 @get_strings_dec('filters')
-async def setup_end(message, chat, strings, state=None, **kwargs):
+async def setup_end(message: Message, strings, state=None, **kwargs):
     async with state.proxy() as proxy:
         data = proxy['data']
         filter_id = proxy['filter_id']
@@ -244,16 +246,16 @@ async def setup_end(message, chat, strings, state=None, **kwargs):
 @register(cmds=['filters', 'listfilters'])
 @chat_connection(only_groups=True)
 @get_strings_dec('filters')
-async def list_filters(message, chat, strings):
-    text = strings['list_filters'].format(chat_name=chat['chat_title'])
+async def list_filters(message: Message, chat: Chat, strings: Dict[str, str]):
+    text = strings['list_filters'].format(chat_name=chat.title)
 
-    filters = db.filters.find({'chat_id': chat['chat_id']})
+    filters = db.filters.find({'chat_id': chat.id})
     filters_text = ''
     async for filter in filters:
         filters_text += f"- {filter['handler']}: {filter['action']}\n"
 
     if not filters_text:
-        await message.reply(strings['no_filters_found'].format(chat_name=chat['chat_title']))
+        await message.reply(strings['no_filters_found'].format(chat_name=chat.title))
         return
 
     await message.reply(text + filters_text)
@@ -263,19 +265,18 @@ async def list_filters(message, chat, strings):
 @need_args_dec()
 @chat_connection(only_groups=True, admin=True)
 @get_strings_dec('filters')
-async def del_filter(message, chat, strings):
+async def del_filter(message: Message, chat: Chat, strings: Dict[str, str]):
     handler = get_args_str(message)
-    chat_id = chat['chat_id']
-    filters = await db.filters.find({'chat_id': chat_id, 'handler': handler}).to_list(9999)
+    filters = await db.filters.find({'chat_id': chat.id, 'handler': handler}).to_list(9999)
     if not filters:
-        await message.reply(strings['no_such_filter'].format(chat_name=chat['chat_title']))
+        await message.reply(strings['no_such_filter'].format(chat_name=chat.title))
         return
 
     # Remove filter in case if we found only 1 filter with same header
     filter = filters[0]
     if len(filters) == 1:
         await db.filters.delete_one({'_id': filter['_id']})
-        await update_handlers_cache(chat_id)
+        await update_handlers_cache(chat.id)
         await message.reply(strings['del_filter'].format(handler=filter['handler']))
         return
 
@@ -296,20 +297,20 @@ async def del_filter(message, chat, strings):
 @register(filter_remove_cp.filter(), f='cb', allow_kwargs=True)
 @chat_connection(only_groups=True, admin=True)
 @get_strings_dec('filters')
-async def del_filter_cb(event, chat, strings, callback_data=None, **kwargs):
+async def del_filter_cb(event: CallbackQuery, chat: Chat, strings: Dict[str, str], callback_data=None, **kwargs):
     if not await is_user_admin(event.message.chat.id, event.from_user.id):
         return await event.answer('You are not admin to do this')
     filter_id = ObjectId(callback_data['id'])
     filter = await db.filters.find_one({'_id': filter_id})
     await db.filters.delete_one({'_id': filter_id})
-    await update_handlers_cache(chat['chat_id'])
+    await update_handlers_cache(chat.id)
     await event.message.edit_text(strings['del_filter'].format(handler=filter['handler']))
     return
 
 
 @register(cmds=['delfilters', "delallfilters"])
 @get_strings_dec('filters')
-async def delall_filters(message: Message, strings: dict):
+async def delall_filters(message: Message, strings: Dict[str, str]):
     if not await is_chat_creator(message, message.chat.id, message.from_user.id):
         return await message.reply(strings['not_chat_creator'])
     buttons = InlineKeyboardMarkup()

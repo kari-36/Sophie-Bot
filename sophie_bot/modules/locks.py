@@ -18,24 +18,26 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import itertools
+from typing import Dict
 
+from aiogram.types import Message
 from aiogram.types.chat_permissions import ChatPermissions
 
 from sophie_bot import bot
 from sophie_bot.decorator import register
 from .utils.connections import chat_connection
 from .utils.language import get_strings_dec
+from ..models.connections import Chat
 
 
 @register(cmds=["locks", "locktypes"], user_admin=True)
 @chat_connection(only_groups=True)
 @get_strings_dec('locks')
-async def lock_types(message, chat, strings):
-    chat_id = chat['chat_id']
-    chat_title = chat['chat_title']
+async def lock_types(message: Message, chat: Chat, strings: Dict[str, str]):
+    chat_title = chat.title
     text = strings['locks_header'].format(chat_title=chat_title)
 
-    async for lock, status in lock_parser(chat_id):
+    async for lock, status in lock_parser(chat.id):
         text += f"- {lock} = {status} \n"
     await message.reply(text)
 
@@ -43,15 +45,14 @@ async def lock_types(message, chat, strings):
 @register(cmds="lock", user_can_restrict_members=True, bot_can_restrict_members=True)
 @chat_connection(only_groups=True)
 @get_strings_dec('locks')
-async def lock_cmd(message, chat, strings):
-    chat_id = chat['chat_id']
-    chat_title = chat['chat_title']
+async def lock_cmd(message: Message, chat: Chat, strings: Dict[str, str]):
+    chat_title = chat.title
 
     if (args := message.get_args().split(' ', 1)) == ['']:
         await message.reply(strings['no_lock_args'])
         return
 
-    async for lock, status in lock_parser(chat_id, rev=True):
+    async for lock, status in lock_parser(chat.id, rev=True):
         if args[0] == lock[0]:
             if status is True:
                 await message.reply(strings['already_locked'])
@@ -61,22 +62,21 @@ async def lock_cmd(message, chat, strings):
             new_perm = ChatPermissions(
                 **to_lock
             )
-            await bot.set_chat_permissions(chat_id, new_perm)
+            await bot.set_chat_permissions(chat.id, new_perm)
             await message.reply(strings['locked_successfully'].format(lock=lock[0], chat=chat_title))
 
 
 @register(cmds="unlock", user_can_restrict_members=True, bot_can_restrict_members=True)
 @chat_connection(only_groups=True)
 @get_strings_dec('locks')
-async def unlock_cmd(message, chat, strings):
-    chat_id = chat['chat_id']
-    chat_title = chat['chat_title']
+async def unlock_cmd(message: Message, chat: Chat, strings: Dict[str, str]):
+    chat_title = chat.title
 
     if (args := message.get_args().split(' ', 1)) == ['']:
         await message.reply(strings['no_unlock_args'])
         return
 
-    async for lock, status in lock_parser(chat_id, rev=True):
+    async for lock, status in lock_parser(chat.id, rev=True):
         if args[0] == lock[0]:
             if status is False:
                 await message.reply(strings['not_locked'])
@@ -86,7 +86,7 @@ async def unlock_cmd(message, chat, strings):
             new_perm = ChatPermissions(
                 **to_unlock
             )
-            await bot.set_chat_permissions(chat_id, new_perm)
+            await bot.set_chat_permissions(chat.id, new_perm)
             await message.reply(strings['unlocked_successfully'].format(lock=lock[0], chat=chat_title))
 
 

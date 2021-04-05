@@ -16,7 +16,9 @@
 
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+from typing import Dict
 
+from aiogram.types import Message
 from aiogram.utils.exceptions import BadRequest
 
 from sophie_bot import bot
@@ -24,18 +26,19 @@ from sophie_bot.decorator import register
 from .utils.connections import chat_connection
 from .utils.language import get_strings_dec
 from .utils.message import get_arg
+from ..models.connections import Chat
 
 
 @register(cmds="unpin", user_can_pin_messages=True, bot_can_pin_messages=True)
 @chat_connection(admin=True)
 @get_strings_dec('pins')
-async def unpin_message(message, chat, strings):
+async def unpin_message(message: Message, chat: Chat, strings: Dict[str, str]):
     # support unpinning all
     if get_arg(message) in {'all'}:
-        return await bot.unpin_all_chat_messages(chat['chat_id'])
+        return await bot.unpin_all_chat_messages(chat.id)
 
     try:
-        await bot.unpin_chat_message(chat['chat_id'])
+        await bot.unpin_chat_message(chat.id)
     except BadRequest:
         await message.reply(strings['chat_not_modified_unpin'])
         return
@@ -43,7 +46,7 @@ async def unpin_message(message, chat, strings):
 
 @register(cmds="pin", user_can_pin_messages=True, bot_can_pin_messages=True)
 @get_strings_dec('pins')
-async def pin_message(message, strings):
+async def pin_message(message: Message, strings: Dict[str, str]):
     if 'reply_to_message' not in message:
         await message.reply(strings['no_reply_msg'])
         return

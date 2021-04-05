@@ -19,11 +19,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import re
+from typing import Dict, Union
 
 from aiogram.dispatcher.filters.builtin import CommandStart
+from aiogram.types import Message
 from babel.dates import format_datetime
 
 from sophie_bot.decorator import register
+from sophie_bot.models.connections import Chat
 from sophie_bot.modules.utils.connections import chat_connection, set_connected_command
 from sophie_bot.modules.utils.disable import disableable_dec
 from sophie_bot.modules.utils.language import get_strings_dec
@@ -41,21 +44,20 @@ from ..utils.get import get_similar_note, get_notes_sections, find_note, get_not
 @chat_connection(command='get')
 @get_strings_dec('notes')
 @clean_notes
-async def get_group_hashtag(message, chat, strings, regexp=None):
-    chat_id = chat['chat_id']
+async def get_group_hashtag(message: Message, chat: Chat, strings: Dict[str, str], regexp=None):
     group_name = message.text.split(' ', 1)[0][1:].lower()
 
     if group_name == 'nogroup':
         group_name = None
 
-    if not await engine.find_one(SavedNote, (SavedNote.chat_id == chat_id) & (SavedNote.group == group_name)):
+    if not await engine.find_one(SavedNote, (SavedNote.chat_id == chat.id) & (SavedNote.group == group_name)):
         return
 
-    notes = await get_notes_sections(await get_notes(chat_id), group_filter=[group_name])
+    notes = await get_notes_sections(await get_notes(chat.id), group_filter=[group_name])
     doc = SanTeXDoc(Section(
         KeyValue(strings['group_notes_header'], Code(group_name or 'nogroup')),
         *notes,
-        title=strings['notelist_header'].format(chat_name=chat['chat_title'])
+        title=strings['notelist_header'].format(chat_name=chat.id)
     ))
     return await message.reply(str(doc))
 
@@ -65,7 +67,7 @@ async def get_group_hashtag(message, chat, strings, regexp=None):
 @chat_connection(command='notes')
 @get_strings_dec('notes')
 @clean_notes
-async def get_notes_list_cmd(message, chat, strings):
+async def get_notes_list_cmd(message: Message, chat: Chat, strings: Dict[str, str]):
     arg = get_arg(message)
 
     # Show hidden more
@@ -79,13 +81,13 @@ async def get_notes_list_cmd(message, chat, strings):
     sections = [KeyValue(strings['search_pattern'], Code(arg))] if arg else []
 
     if not (notes_section := await get_notes_sections(
-            await get_notes(chat['chat_id']), name_filter=arg, show_hidden=show_hidden)
+            await get_notes(chat.id), name_filter=arg, show_hidden=show_hidden)
     ):
-        return await message.reply(strings["notelist_no_notes"].format(chat_title=chat['chat_title']))
+        return await message.reply(strings["notelist_no_notes"].format(chat_title=chat.title))
 
     sections += notes_section
 
-    doc += Section(*sections, title=strings['notelist_header'].format(chat_name=chat['chat_title']))
+    doc += Section(*sections, title=strings['notelist_header'].format(chat_name=chat.title))
     return await message.reply(str(doc))
 
 
@@ -93,27 +95,25 @@ async def get_notes_list_cmd(message, chat, strings):
 @chat_connection()
 @get_strings_dec('notes')
 @clean_notes
-async def search_in_note(message, chat, strings):
-    chat_id = chat['chat_id']
-
+async def search_in_note(message: Message, chat: Chat, strings: Dict[str, str]):
     pattern = message.get_args()
 
     # TODO: Use model fields instead of 'note.text'
-    notes = await get_notes(chat_id, {'note.text': {'$regex': pattern, '$options': 'i'}})
+    notes = await get_notes(chat.id, {'note.text': {'$regex': pattern, '$options': 'i'}})
     if not notes or not (notes_section := await get_notes_sections(notes)):
-        return await message.reply(strings["query_not_found"].format(chat_name=chat['chat_title']))
+        return await message.reply(strings["query_not_found"].format(chat_name=chat.title))
 
     return await message.reply(str(SanTeXDoc(
         Section(
             KeyValue(strings['search_pattern'], Code(pattern)),
             *notes_section,
-            title=strings['search_header'].format(chat_name=chat['chat_title'])
+            title=strings['search_header'].format(chat_name=chat.title)
         ))))
 
 
 @register(CommandStart(re.compile('notes')))
 @get_strings_dec('notes')
-async def private_notes_func(message, strings):
+async def private_notes_func(message: Message, strings: Dict[str, str]):
     args = message.get_args().split('_')
     chat_id = args[1]
     keyword = args[2] if args[2] != 'None' else None
@@ -128,13 +128,12 @@ async def private_notes_func(message, strings):
 @need_args_dec()
 @get_strings_dec('notes')
 @clean_notes
-async def note_info(message, chat, strings):
-    chat_id = chat['chat_id']
+async def note_info(message: Message, chat: Chat, strings: Dict[str, Union[str, Dict[str, str]]]):
     arg = get_arg(message).lower()
 
-    if not (note := await find_note(arg, chat_id)):
-        text = strings['cant_find_note'].format(chat_name=chat['chat_title'])
-        if alleged_note_name := await get_similar_note(chat['chat_id'], get_note_name(arg)):
+    if not (note := await find_note(arg, chat.id)):
+        text = strings['cant_find_note'].format(chat_name=chat.title)
+        if alleged_note_name := await get_similar_note(chat.id, get_note_name(arg)):
             text += strings['u_mean'].format(note_name=alleged_note_name)
         return await message.reply(text)
 

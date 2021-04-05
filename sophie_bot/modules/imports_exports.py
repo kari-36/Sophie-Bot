@@ -17,20 +17,20 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import orjson
 import asyncio
 import io
 from datetime import datetime, timedelta
-from odmantic.engine import ModelType
+
+from typing import Dict, Union
 
 import ujson
 from aiogram import types
 from aiogram.dispatcher.filters.state import State, StatesGroup
+from aiogram.types import Message
 from aiogram.types.input_file import InputFile
 from babel.dates import format_timedelta
 from odmantic.engine import ModelType
 from pydantic.error_wrappers import ValidationError
-
 
 from sophie_bot import OPERATORS, bot, SOPHIE_VERSION, BOT_ID
 from sophie_bot.decorator import register
@@ -41,9 +41,7 @@ from sophie_bot.services.redis import redis
 from . import LOADED_MODULES
 from .utils.connections import chat_connection
 from .utils.language import get_strings_dec
-from sophie_bot.models.imports_exports import ExportModel, GeneralData, ExportInfo
-from sophie_bot.modules.utils.text import SanTeXDoc, Section, Bold, Code, KeyValue, VList
-from sophie_bot.modules.utils.message import get_arg
+from ..models.connections import Chat
 
 VERSION = 6
 
@@ -56,9 +54,8 @@ class ImportFileWait(StatesGroup):
 @register(cmds='export', user_admin=True)
 @chat_connection(admin=True, only_groups=True)
 @get_strings_dec('imports_exports')
-async def export_chat_data(message, chat, strings):
-    chat_id = chat['chat_id']
-    key = 'export_lock:' + str(chat_id)
+async def export_chat_data(message: Message, chat: Chat, strings: Dict[str, Union[str, Dict[str, str]]]):
+    key = 'export_lock:' + str(chat.id)
     if redis.get(key) and message.from_user.id not in OPERATORS:
         ttl = format_timedelta(timedelta(seconds=redis.ttl(key)), strings['language_info']['babel'])
         await message.reply(strings['exports_locked'] % ttl)
@@ -74,14 +71,14 @@ async def export_chat_data(message, chat, strings):
         await asyncio.sleep(0.2)
 
         module_name = module.__name__.replace('sophie_bot.modules.', '')
-        module_data = await module.__export_data__(chat_id)
+        module_data = await module.__export_data__(chat.id)
         if module_data:
             modules[module_name] = module_data.dict(exclude={'id'})
 
     data = ExportModel(
         export_info=ExportInfo(
-            chat_name=chat['chat_title'],
-            chat_id=chat_id,
+            chat_name=chat.title,
+            chat_id=chat.id,
             date=datetime.now(),
         ),
         general=GeneralData(
@@ -91,8 +88,8 @@ async def export_chat_data(message, chat, strings):
         ), modules=modules
     )
 
-    jfile = InputFile(io.StringIO(data.json(indent=2)), filename=f'{chat_id}_export.json')
-    text = strings['export_done'].format(chat_name=chat['chat_title'])
+    jfile = InputFile(io.StringIO(data.json(indent=2)), filename=f'{chat.id}_export.json')
+    text = strings['export_done'].format(chat_name=chat.title)
     await message.answer_document(jfile, text, reply=message.message_id)
     await msg.delete()
 
@@ -124,9 +121,8 @@ async def import_state(message, state=None, **kwargs):
 
 @chat_connection(admin=True, only_groups=True)
 @get_strings_dec('imports_exports')
-async def import_fun(message, document, chat, strings):
-    chat_id = chat['chat_id']
-    key = 'import_lock:' + str(chat_id)
+async def import_fun(message: Message, document, chat: Chat, strings: Dict[str, Union[str, Dict[str, str]]]):
+    key = 'import_lock:' + str(chat.id)
     if redis.get(key) and message.from_user.id not in OPERATORS:
         ttl = format_timedelta(timedelta(seconds=redis.ttl(key)), strings['language_info']['babel'])
         await message.reply(strings['imports_locked'] % ttl)
@@ -173,7 +169,7 @@ async def import_fun(message, document, chat, strings):
 
         try:
             module_data: ModelType = module.__data_model__(**data_modules[module_name])
-            await module.__import_data__(chat_id, module_data, overwrite=overwrite)
+            await module.__import_data__(chat.id, module_data, overwrite=overwrite)
         except ValidationError as validation_errors:
             error_list = []
             for error in validation_errors.errors():
@@ -186,7 +182,7 @@ async def import_fun(message, document, chat, strings):
                 title=strings['import_error_header']
             ))))
 
-    text = strings['import_done'].format(chat_name=chat['chat_title'])
+    text = strings['import_done'].format(chat_name=chat.title)
     text += '\n'
     text += strings['import_replace'] if overwrite else strings['import_append']
     await msg.edit_text(text)

@@ -19,8 +19,10 @@
 
 import datetime
 import html
+from typing import Dict
 
 from aiogram.dispatcher.middlewares import BaseMiddleware
+from aiogram.types import Message
 
 from sophie_bot import dp
 from sophie_bot.decorator import register
@@ -31,6 +33,7 @@ from .utils.connections import chat_connection
 from .utils.disable import disableable_dec
 from .utils.language import get_strings_dec
 from .utils.user_details import get_user_dec, get_user_link, is_user_admin, get_admins_rights
+from ..models.connections import Chat, ChatTypes
 
 
 async def update_users_handler(message):
@@ -173,8 +176,8 @@ async def user_info(message, user, strings):
 @register(cmds="admincache", is_admin=True)
 @chat_connection(only_groups=True, admin=True)
 @get_strings_dec("users")
-async def reset_admins_cache(message, chat, strings):
-    await get_admins_rights(chat['chat_id'], force_update=True)  # Reset a cache
+async def reset_admins_cache(message: Message, chat: Chat, strings: Dict[str, str]):
+    await get_admins_rights(chat.id, force_update=True)  # Reset a cache
     await message.reply(strings['upd_cache_done'])
 
 
@@ -183,15 +186,15 @@ async def reset_admins_cache(message, chat, strings):
 @get_user_dec(allow_self=True)
 @get_strings_dec('misc')
 @chat_connection()
-async def get_id(message, user, strings, chat):
+async def get_id(message: Message, user, strings: Dict[str, str], chat: Chat):
     user_id = message.from_user.id
 
     text = strings["your_id"].format(id=user_id)
     if message.chat.id != user_id:
         text += strings["chat_id"].format(id=message.chat.id)
 
-    if chat['status'] is True:
-        text += strings["conn_chat_id"].format(id=chat['chat_id'])
+    if chat.chat_type is ChatTypes.public:
+        text += strings["conn_chat_id"].format(id=chat.id)
 
     if not user['user_id'] == user_id:
         text += strings["user_id"].format(
@@ -213,8 +216,8 @@ async def get_id(message, user, strings, chat):
 @disableable_dec("adminlist")
 @chat_connection(only_groups=True)
 @get_strings_dec("users")
-async def adminlist(message, chat, strings):
-    admins = await get_admins_rights(chat['chat_id'])
+async def adminlist(message: Message, chat: Chat, strings: Dict[str, str]):
+    admins = await get_admins_rights(chat.id)
     text = strings['admins']
     for admin, rights in admins.items():
         if rights['anonymous']:

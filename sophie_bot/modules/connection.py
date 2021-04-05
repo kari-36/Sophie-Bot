@@ -18,9 +18,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import re
+from typing import Dict
 
 from aiogram.dispatcher.filters.builtin import CommandStart
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, Message
 from aiogram.types.inline_keyboard import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.callback_data import CallbackData
 from aiogram.utils.deep_linking import get_start_link
@@ -35,6 +36,7 @@ from .utils.language import get_strings_dec
 from .utils.message import get_arg
 from .utils.notes import BUTTONS
 from .utils.user_details import get_chat_dec, is_user_admin
+from ..models.connections import Chat, ChatTypes
 
 connect_to_chat_cb = CallbackData('connect_to_chat_cb', 'chat_id')
 
@@ -82,13 +84,13 @@ async def connect_to_chat_direct(message, strings):
 @register(cmds='connect', no_args=True, only_pm=True)
 @get_strings_dec('connections')
 @chat_connection()
-async def connect_chat_keyboard(message, strings, chat):
+async def connect_chat_keyboard(message: Message, strings: Dict[str, str], chat: Chat):
     connected_data = await get_connection_data(message.from_user.id)
     if not connected_data:
         return await message.reply(strings['u_wasnt_connected'])
 
-    if chat['status'] != 'private':
-        text = strings['connected_chat'].format(chat_name=chat['chat_title'])
+    if chat.chat_type is ChatTypes.public:
+        text = strings['connected_chat'].format(chat_name=chat.title)
     elif 'command' in connected_data:
         if chat := await db.chat_list.find_one({'chat_id': connected_data['chat_id']}):
             chat_title = chat['chat_title']
@@ -154,17 +156,16 @@ async def disconnect_from_chat_direct(message, strings):
 @register(cmds='allowusersconnect')
 @get_strings_dec('connections')
 @chat_connection(admin=True, only_groups=True)
-async def allow_users_to_connect(message, strings, chat):
-    chat_id = chat['chat_id']
+async def allow_users_to_connect(message: Message, strings: Dict[str, str], chat: Chat):
     arg = get_arg(message).lower()
     if not arg:
         status = strings['enabled']
-        data = await db.chat_connection_settings.find_one({'chat_id': chat_id})
+        data = await db.chat_connection_settings.find_one({'chat_id': chat.id})
         if data and 'allow_users_connect' in data and data['allow_users_connect'] is False:
             status = strings['disabled']
         await message.reply(strings['chat_users_connections_info'].format(
             status=status,
-            chat_name=chat['chat_title']
+            chat_name=chat.title
         ))
         return
     enable = ('enable', 'on', 'ok', 'yes')
@@ -180,23 +181,23 @@ async def allow_users_to_connect(message, strings, chat):
         return
 
     await db.chat_connection_settings.update_one(
-        {'chat_id': chat_id},
+        {'chat_id': chat.id},
         {"$set": {'allow_users_connect': r_bool}},
         upsert=True
     )
     await message.reply(strings['chat_users_connections_cng'].format(
         status=status,
-        chat_name=chat['chat_title']
+        chat_name=chat.title
     ))
 
 
 @register(cmds='start', only_pm=True)
 @get_strings_dec('connections')
 @chat_connection()
-async def connected_start_state(message, strings, chat):
+async def connected_start_state(message: Message, strings: Dict[str, str], chat: Chat):
     key = 'sophie_connected_start_state:' + str(message.from_user.id)
     if redis.get(key):
-        await message.reply(strings['pm_connected'].format(chat_name=chat['chat_title']))
+        await message.reply(strings['pm_connected'].format(chat_name=chat.title))
         redis.delete(key)
 
 

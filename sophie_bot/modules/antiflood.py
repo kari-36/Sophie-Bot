@@ -33,6 +33,7 @@ from babel.dates import format_timedelta
 
 from sophie_bot import dp
 from sophie_bot.decorator import register
+from sophie_bot.models.connections import Chat
 from sophie_bot.modules.utils.connections import chat_connection
 from sophie_bot.modules.utils.language import get_strings_dec, get_strings
 from sophie_bot.modules.utils.message import convert_time, get_args, need_args_dec, InvalidTimeUnit
@@ -166,7 +167,7 @@ class AntifloodEnforcer(BaseMiddleware):
 @need_args_dec()
 @chat_connection()
 @get_strings_dec('antiflood')
-async def setflood_command(message: Message, chat: dict, strings: dict):
+async def setflood_command(message: Message, chat: Chat, strings: dict):
     try:
         args = int(get_args(message)[0])
     except ValueError:
@@ -175,7 +176,7 @@ async def setflood_command(message: Message, chat: dict, strings: dict):
         return await message.reply(strings['overflowed_count'])
 
     await AntiFloodConfigState.expiration_proc.set()
-    redis.set(f"antiflood_setup:{chat['chat_id']}", args)
+    redis.set(f"antiflood_setup:{chat.id}", args)
     await message.reply(
         strings['config_proc_1'],
         reply_markup=InlineKeyboardMarkup().add(
@@ -187,7 +188,7 @@ async def setflood_command(message: Message, chat: dict, strings: dict):
 @register(state=AntiFloodConfigState.expiration_proc, content_types=ContentType.TEXT, allow_kwargs=True)
 @chat_connection()
 @get_strings_dec('antiflood')
-async def antiflood_expire_proc(message: Message, chat: dict, strings: dict, state, **_):
+async def antiflood_expire_proc(message: Message, chat: Chat, strings: dict, state, **_):
     try:
         if (time := message.text) not in (0, "0"):
             parsed_time = convert_time(time)  # just call for making sure its valid
@@ -196,15 +197,15 @@ async def antiflood_expire_proc(message: Message, chat: dict, strings: dict, sta
     except (TypeError, ValueError):
         await message.reply(strings['invalid_time'])
     else:
-        if not (data := redis.get(f'antiflood_setup:{chat["chat_id"]}')):
+        if not (data := redis.get(f'antiflood_setup:{chat.id}')):
             await message.reply(strings['setup_corrupted'])
         else:
             await db.antiflood.update_one(
-                {"chat_id": chat['chat_id']},
+                {"chat_id": chat.id},
                 {"$set": {"time": time, "count": int(data)}},
                 upsert=True
             )
-            await get_data.reset_cache(chat['chat_id'])
+            await get_data.reset_cache(chat.id)
             kw = {'count': data}
             if time is not None:
                 kw.update({'time': format_timedelta(parsed_time, locale=strings['language_info']['babel'])})
@@ -218,14 +219,14 @@ async def antiflood_expire_proc(message: Message, chat: dict, strings: dict, sta
 @register(cmds=['antiflood', 'flood'], is_admin=True)
 @chat_connection(admin=True)
 @get_strings_dec('antiflood')
-async def antiflood(message: Message, chat: dict, strings: dict):
-    if not (data := await get_data(chat['chat_id'])):
+async def antiflood(message: Message, chat: Chat, strings: dict):
+    if not (data := await get_data(chat.id)):
         return await message.reply(strings['not_configured'])
 
     if message.get_args().lower() in ('off', '0', 'no'):
-        await db.antiflood.delete_one({"chat_id": chat['chat_id']})
-        await get_data.reset_cache(chat['chat_id'])
-        return await message.reply(strings['turned_off'].format(chat_title=chat['chat_title']))
+        await db.antiflood.delete_one({"chat_id": chat.id})
+        await get_data.reset_cache(chat.id)
+        return await message.reply(strings['turned_off'].format(chat_title=chat.title))
 
     if data['time'] is None:
         return await message.reply(
@@ -249,18 +250,18 @@ async def antiflood(message: Message, chat: dict, strings: dict):
 @need_args_dec()
 @chat_connection(admin=True)
 @get_strings_dec('antiflood')
-async def setfloodaction(message: Message, chat: dict, strings: dict):
+async def setfloodaction(message: Message, chat: Chat, strings: dict):
     SUPPORTED_ACTIONS = ['kick', 'ban', 'mute', 'tmute', 'tban']  # noqa
     if (action := message.get_args().lower()) not in SUPPORTED_ACTIONS:
         return await message.reply(strings['invalid_args'].format(supported_actions=", ".join(SUPPORTED_ACTIONS)))
 
     if action.startswith('t'):
         await message.reply(strings['send_time'], allow_sending_without_reply=True)
-        redis.set(f"floodactionstate:{chat['chat_id']}", action)
+        redis.set(f"floodactionstate:{chat.id}", action)
         return await AntiFloodActionState.set_time_proc.set()
 
     await db.antiflood.update_one(
-        {"chat_id": chat['chat_id']},
+        {"chat_id": chat.id},
         {"$set": {"action": action}},
         upsert=True
     )

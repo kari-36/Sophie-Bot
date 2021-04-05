@@ -15,40 +15,54 @@
 
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+from typing import Optional, Union, Any
+
+from aiogram import types
 from aiogram.utils.exceptions import Unauthorized
 
+from sophie_bot.models.connections import ConnectedChat, ConnectionStatus, ChatTypes, Chat
 from sophie_bot.modules.utils.user_details import is_user_admin
 from sophie_bot.services.mongo import db
 from sophie_bot.services.redis import redis
+from sophie_bot.types.chat import ChatId
 from sophie_bot.utils.cached import cached
 
 
-async def get_connected_chat(message, admin=False, only_groups=False, from_id=None, command=None):
+@cached(ttl=900)
+async def get_connected_chat(
+        chat: types.Chat,
+        user_id: int,
+        admin: bool = False,
+        only_groups: bool = False,
+        command: Optional[str] = None
+) -> ConnectedChat:
     # admin - Require admin rights in connected chat
     # only_in_groups - disable command when bot's pm not connected to any chat
-    real_chat_id = message.chat.id
-    user_id = from_id or message.from_user.id
+    real_chat_id = chat.id
     key = 'connection_cache_' + str(user_id)
 
-    if not message.chat.type == 'private':
+    if not chat.type == 'private':
         _chat = await db.chat_list.find_one({'chat_id': real_chat_id})
-        chat_title = _chat['chat_title'] if _chat is not None else message.chat.title
+        chat_title = _chat['chat_title'] if _chat is not None else chat.title
         # On some strange cases such as Database is fresh or new ; it doesn't contain chat data
         # Only to "handle" the error, we do the above workaround - getting chat title from the update
-        return {'status': 'chat', 'chat_id': real_chat_id, 'chat_title': chat_title}
-
-    # Cached
-    if cached := redis.hgetall(key):
-        cached['status'] = True
-        cached['chat_id'] = int(cached['chat_id'])
-        # return cached
+        # return {'status': 'chat', 'chat_id': real_chat_id, 'chat_title': chat_title}
+        return ConnectedChat(
+            status=ConnectionStatus.success,
+            chat=Chat(id=real_chat_id, title=chat_title, chat_type=ChatTypes.public)
+        )
 
     # if pm and not connected
     if not (connected := await get_connection_data(user_id)) or 'chat_id' not in connected:
         if only_groups:
-            return {'status': None, 'err_msg': 'usage_only_in_groups'}
+            # return {'status': None, 'err_msg': 'usage_only_in_groups'}
+            return ConnectedChat(status=ConnectionStatus.error, error_msg="usage_only_in_groups")
         else:
-            return {'status': 'private', 'chat_id': user_id, 'chat_title': 'Local chat'}
+            # return {'status': 'private', 'chat_id': user_id, 'chat_title': 'Local chat'}
+            return ConnectedChat(
+                status=ConnectionStatus.success,
+                chat=Chat(id=ChatId(user_id), chat_type=ChatTypes.private)
+            )
 
     chat_id = connected['chat_id']
 
@@ -56,7 +70,8 @@ async def get_connected_chat(message, admin=False, only_groups=False, from_id=No
     # TODO: Really get the user and check on banned
     user_chats = (await db.user_list.find_one({'user_id': user_id}))['chats']
     if chat_id not in user_chats:
-        return {'status': None, 'err_msg': 'not_in_chat'}
+        # return {'status': None, 'err_msg': 'not_in_chat'}
+        return ConnectedChat(status=ConnectionStatus.error, error_msg="not_in_chat")
 
     chat_title = (await db.chat_list.find_one({'chat_id': chat_id}))['chat_title']
 
@@ -64,61 +79,73 @@ async def get_connected_chat(message, admin=False, only_groups=False, from_id=No
     try:
         user_admin = await is_user_admin(chat_id, user_id)
     except Unauthorized:
-        return {'status': None, 'err_msg': 'bot_not_in_chat, please /disconnect'}
+        # return {'status': None, 'err_msg': 'bot_not_in_chat, please /disconnect'}
+        return ConnectedChat(status=ConnectionStatus.error, error_msg="bot_not_in_chat, please /disconnect")
 
     if admin:
         if not user_admin:
-            return {'status': None, 'err_msg': 'u_should_be_admin'}
+            # return {'status': None, 'err_msg': 'u_should_be_admin'}
+            return ConnectedChat(status=ConnectionStatus.error, error_msg="user_not_admin")
 
     if 'command' in connected:
         if command in connected['command']:
-            return {'status': True, 'chat_id': chat_id, 'chat_title': chat_title}
+            # return {'status': True, 'chat_id': chat_id, 'chat_title': chat_title}
+            return ConnectedChat(
+                status=ConnectionStatus.success,
+                chat=Chat(id=ChatId(chat_id), title=chat_title, chat_type=ChatTypes.public)
+            )
         else:
             # Return local chat if user is accessing non connected command
-            return {'status': 'private', 'chat_id': user_id, 'chat_title': 'Local chat'}
+            # return {'status': 'private', 'chat_id': user_id, 'chat_title': 'Local chat'}
+            return ConnectedChat(
+                status=ConnectionStatus.success,
+                chat=Chat(id=ChatId(user_id), chat_type=ChatTypes.private)
+            )
 
     # Check on /allowusersconnect enabled
     if settings := await db.chat_connection_settings.find_one({'chat_id': chat_id}):
         if 'allow_users_connect' in settings and settings['allow_users_connect'] is False and not user_admin:
-            return {'status': None, 'err_msg': 'conn_not_allowed'}
+            # return {'status': None, 'err_msg': 'conn_not_allowed'}
+            return ConnectedChat(status=ConnectionStatus.error, error_msg="conn_not_allowed")
 
-    data = {
-        'status': True,
-        'chat_id': chat_id,
-        'chat_title': chat_title
-    }
-
-    # Cache connection status for 15 minutes
-    cached = data
-    cached['status'] = 1
-    redis.hmset(key, cached)
-    redis.expire(key, 900)
-
-    return data
+    return ConnectedChat(
+        status=ConnectionStatus.success,
+        chat=Chat(id=ChatId(chat_id), title=chat_title, chat_type=ChatTypes.public)
+    )
 
 
 def chat_connection(**dec_kwargs):
     def wrapped(func):
-        async def wrapped_1(*args, **kwargs):
+        async def wrapped_1(*args: Any, **kwargs: Any):
 
-            message = args[0]
-            from_id = None
-            if hasattr(message, 'message'):
-                from_id = message.from_user.id
-                message = message.message
+            raw_message: Union[types.Message, types.CallbackQuery] = args[0]
+            if isinstance(raw_message, types.Message):
+                chat = raw_message.chat
+                user_id = raw_message.chat.id
+            elif isinstance(raw_message, types.CallbackQuery):
+                chat = raw_message.message.chat.id
+                user_id = raw_message.from_user.id
+            else:
+                raise Exception("Connection got unexpected message type: failed to parse chat and user details")
 
-            if (check := await get_connected_chat(message, from_id=from_id, **dec_kwargs))['status'] is None:
-                await message.reply(check['err_msg'])
+            if (check := await get_connected_chat(chat=chat, user_id=user_id, **dec_kwargs)).is_error():
+                if isinstance(raw_message, types.Message):
+                    await raw_message.reply(check.error_msg, allow_sending_without_reply=True)
+                elif isinstance(raw_message, types.CallbackQuery):
+                    await raw_message.answer(check.error_msg, show_alert=True)
+                else:
+                    # totally unexpected
+                    raise Exception("Unexpected condition at `chat_connection`")
                 return
             else:
-                return await func(*args, check, **kwargs)
+                return await func(*args, check.chat, **kwargs)
 
         return wrapped_1
 
     return wrapped
 
 
-async def set_connected_chat(user_id, chat_id):
+async def set_connected_chat(user_id: int, chat_id: Optional[int]):
     key = f'connection_cache_{user_id}'
     redis.delete(key)
     if not chat_id:
