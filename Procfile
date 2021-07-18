@@ -1,1 +1,1 @@
-worker: python3 -m SophieBot
+worker: python3 -m sophie_bot
